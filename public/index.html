@@ -1686,6 +1686,8 @@
           <input id="turno-lugar" type="text" maxlength="80" autocomplete="off" placeholder="Ej: Hospital, consultorio 3">
         </label>
 
+        <small class="pista" id="turno-recordatorio" hidden>Te vamos a avisar el día anterior a las 20 hs y 2 horas antes del turno.</small>
+
         <p class="error" id="turno-error" role="alert"></p>
         <button type="submit" class="boton">Guardar turno</button>
         <button type="button" class="boton-texto" id="turno-cancelar">Cancelar</button>
@@ -3090,6 +3092,7 @@
       pasados.forEach(t => listaPasados.append(crearItemTurno(t)));
 
       renderAvisoTurno();
+      programarRecordatorios(proximos);
     }
 
     function borrarTurno(id) {
@@ -3144,8 +3147,90 @@
       turnos.push(turno);
       if (!guardarLista(CLAVE_TURNOS, turnos)) return;
       cerrarTurno();
-      renderTurnos();
+      pedirPermisoRecordatorios().then(renderTurnos);   // en la web no pide nada y dibuja enseguida
     });
+
+    // ---------- 11.1b Recordatorios de turnos (solo en la app de Android) ----------
+    // Un aviso el día anterior a las 20 hs y otro 2 horas antes (si no cae antes de las 8 de la mañana).
+    // En la web no hace nada: ni carga el plugin ni muestra errores.
+    // Cada vez que cambian los turnos se borran todos los avisos pendientes y se vuelven a programar.
+    const ES_APP = !!(window.Capacitor && typeof Capacitor.isNativePlatform === "function" && Capacitor.isNativePlatform());
+    let pluginListo = null;
+
+    // Carga capacitor.js y devuelve { LN } (el plugin va envuelto: es un Proxy que no se puede devolver solo en una promesa)
+    function pluginNotificaciones() {
+      if (!ES_APP) return Promise.resolve(null);
+      if (!pluginListo) pluginListo = new Promise(resolve => {
+        const script = document.createElement("script");
+        script.src = "/capacitor.js";
+        script.onload = () => {
+          try {
+            const LN = Capacitor.registerPlugin("LocalNotifications");
+            // Al tocar el aviso, la app abre en "Mis controles"
+            LN.addListener("localNotificationActionPerformed", () => mostrarSeccion("controles"));
+            resolve({ LN });
+          } catch (error) { console.warn("No se pudieron cargar las notificaciones:", error); resolve(null); }
+        };
+        script.onerror = () => resolve(null);
+        document.head.append(script);
+      });
+      return pluginListo;
+    }
+
+    // Se llama al guardar un turno: es el momento justo para pedir permiso (la paciente sabe para qué es)
+    async function pedirPermisoRecordatorios() {
+      try {
+        const plugin = await pluginNotificaciones();
+        if (!plugin) return;
+        let { display } = await plugin.LN.checkPermissions();
+        if (display === "prompt" || display === "prompt-with-rationale") ({ display } = await plugin.LN.requestPermissions());
+        if (display !== "granted") alert("Para recibir los recordatorios de tus turnos, activá las notificaciones de MamaSegui en los ajustes del celular.");
+      } catch (error) { console.warn("No se pudo pedir permiso para las notificaciones:", error); }
+    }
+
+    let colaRecordatorios = Promise.resolve();   // de a una por vez, para que no se pisen
+
+    function programarRecordatorios(proximos) {
+      if (!ES_APP) return;
+      colaRecordatorios = colaRecordatorios.then(async () => {
+        try {
+          const plugin = await pluginNotificaciones();
+          if (!plugin) return;
+          const { LN } = plugin;
+          if ((await LN.checkPermissions()).display !== "granted") return;
+
+          const { notifications: pendientes } = await LN.getPending();
+          if (pendientes.length) await LN.cancel({ notifications: pendientes.map(n => ({ id: n.id })) });
+
+          const ahora = new Date(), avisos = [];
+          proximos.forEach(t => {
+            const detalle = `${TIPOS_TURNO[t.tipo]} a las ${textoHora(t.cuando)}` + (t.lugar ? ` · ${t.lugar}` : "");
+            const nocheAntes = new Date(t.cuando.getFullYear(), t.cuando.getMonth(), t.cuando.getDate() - 1, 20, 0);
+            const dosHorasAntes = new Date(t.cuando.getTime() - 2 * 60 * 60 * 1000);
+            if (nocheAntes > ahora)
+              avisos.push({ title: "Mañana tenés turno", body: detalle, at: nocheAntes });
+            if (dosHorasAntes > ahora && dosHorasAntes.getHours() >= 8)
+              avisos.push({ title: "Tu turno es en 2 horas", body: detalle, at: dosHorasAntes });
+          });
+          if (!avisos.length) return;
+
+          // Si Android no le dio permiso de "alarmas exactas", el plugin abriría esa pantalla de ajustes
+          // cada vez. Sin ese permiso el aviso sale igual, con unos minutos de diferencia.
+          let exacta = false;
+          try { exacta = (await LN.checkExactNotificationSetting()).exact_alarm === "granted"; } catch (e) { /* Android viejo: no hace falta */ }
+
+          await LN.schedule({
+            notifications: avisos.map((a, i) => ({
+              id: 1000 + i, title: a.title, body: a.body,
+              schedule: { at: a.at, allowWhileIdle: true }, isExactNotification: exacta,
+              smallIcon: "ic_notificacion", iconColor: "#c2557a"
+            }))
+          });
+        } catch (error) { console.warn("No se pudieron programar los recordatorios:", error); }
+      });
+    }
+
+    document.getElementById("turno-recordatorio").hidden = !ES_APP;   // la aclaración solo tiene sentido en la app
 
     // ---------- 11.2 Mi checklist del embarazo ----------
     // ⚠ PENDIENTE DE VALIDACIÓN POR OBSTETRICIA: contenido, momentos y textos.

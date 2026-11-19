@@ -1,0 +1,11 @@
+{
+  "appId": "com.mamasegui.app",
+  "appName": "MamaSegui",
+  "webDir": "public",
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_notificacion",
+      "iconColor": "#c2557a"
+    }
+  }
+}

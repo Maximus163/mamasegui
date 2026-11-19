@@ -1,0 +1,10 @@
+# Archivos del sistema que no se suben
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Dependencias de Node (se reinstalan con: npm install)
+node_modules/
+
+# Lo copia "npm run android" para la app; en la web no hace falta
+public/capacitor.js

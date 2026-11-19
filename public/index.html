@@ -1,0 +1,3447 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <!-- viewport-fit=cover permite usar el área completa en celulares con "notch" -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="MamaSegui: acompañamiento del embarazo y los primeros meses del bebé.">
+  <!-- Ícono de la pestaña (cochecito de bebé), en SVG dentro del mismo archivo -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c2557a' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 5h2.5l2 7h11a6.5 6.5 0 0 0-6.5-6.5H11V12'/%3E%3Ccircle cx='9' cy='18' r='2'/%3E%3Ccircle cx='17' cy='18' r='2'/%3E%3C/svg%3E">
+  <!-- PWA: datos de instalación (nombre, íconos, colores) -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-title" content="MamaSegui">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>MamaSegui</title>
+
+  <style>
+    /* =========================================================
+       1. VARIABLES DE DISEÑO (colores, tamaños, sombras)
+       Misma estructura que CardioSegui, con colores suaves rosa/lila.
+       ========================================================= */
+    :root {
+      --rosa:        #c2557a;   /* color principal de MamaSegui */
+      --rosa-oscuro: #9c3d61;
+      --rosa-claro:  #fbecf1;   /* fondo de acentos */
+      --lila:        #7d5ba6;
+      --lila-claro:  #f1ebf8;
+      --blanco:      #ffffff;
+      --fondo:       #faf6f9;   /* fondo general, blanco rosado */
+      --texto:       #3b2a45;   /* ciruela oscuro */
+      --texto-suave: #6f6577;
+      --borde:       #eee3eb;
+      --alarma:      #d03a3a;   /* rojo de la sección "Alarma" */
+      --alarma-claro:#fde8e8;
+      --ambar:       #b7791f;
+
+      --radio:       18px;
+      --sombra:      0 4px 18px rgba(59, 42, 69, 0.08);
+      --alto-nav:    76px;
+    }
+
+    /* =========================================================
+       2. BASE: reseteo y tipografía
+       ========================================================= */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--fondo);
+      color: var(--texto);
+      font-size: 17px;
+      line-height: 1.5;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Contenedor: pantalla completa en el celular, centrado en la computadora */
+    .app {
+      max-width: 480px;
+      min-height: 100%;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* =========================================================
+       3. ENCABEZADO
+       ========================================================= */
+    /* Bloque de color con el nombre de la app y el título de la sección */
+    .encabezado {
+      background: linear-gradient(135deg, var(--rosa), var(--lila));
+      color: var(--blanco);
+      padding: calc(20px + env(safe-area-inset-top)) 22px 26px;
+      border-radius: 0 0 28px 28px;
+      box-shadow: var(--sombra);
+      transition: background 0.3s;
+    }
+
+    /* En la sección Alarma el encabezado se pone rojo */
+    .encabezado.alarma { background: linear-gradient(135deg, #b8322f, var(--alarma)); }
+
+    .marca { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; letter-spacing: 0.3px; opacity: 0.95; }
+    .marca svg { width: 26px; height: 26px; }
+    .encabezado h1 { margin-top: 14px; font-size: 28px; font-weight: 700; line-height: 1.2; }
+    .encabezado p  { margin-top: 4px; font-size: 16px; opacity: 0.92; }
+
+    /* =========================================================
+       4. CONTENIDO Y SECCIONES
+       Solo la sección con la clase "activa" se muestra.
+       ========================================================= */
+    main { flex: 1; padding: 22px 18px calc(var(--alto-nav) + 28px + env(safe-area-inset-bottom)); }
+
+    .seccion { display: none; animation: aparecer 0.25s ease; }
+    .seccion.activa { display: block; }
+
+    @keyframes aparecer {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Tarjeta de "Próximamente" */
+    .tarjeta {
+      background: var(--blanco);
+      border-radius: var(--radio);
+      box-shadow: var(--sombra);
+      padding: 34px 24px;
+      text-align: center;
+      /* Cada sección puede cambiar su color con --c y --c-claro */
+      --c: var(--rosa);
+      --c-claro: var(--rosa-claro);
+    }
+
+    .tarjeta.lila   { --c: var(--lila);   --c-claro: var(--lila-claro); }
+    .tarjeta.alarma { --c: var(--alarma); --c-claro: var(--alarma-claro); border-top: 6px solid var(--alarma); }
+
+    .icono-grande {
+      width: 84px;
+      height: 84px;
+      margin: 0 auto 18px;
+      border-radius: 50%;
+      background: var(--c-claro);
+      color: var(--c);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .icono-grande svg { width: 42px; height: 42px; }
+
+    .etiqueta {
+      display: inline-block;
+      background: var(--c-claro);
+      color: var(--texto);
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      margin-bottom: 14px;
+    }
+
+    .tarjeta h2 { font-size: 24px; margin-bottom: 8px; }
+    .tarjeta p  { color: var(--texto-suave); font-size: 17px; }
+
+    /* Aviso general (orientativo) */
+    .aviso-info {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      margin-top: 18px;
+      padding: 14px 16px;
+      border: 2px solid #f0d58c;
+      border-radius: 16px;
+      background: #fff8e6;
+      color: #5c4300;
+      font-size: 15px;
+      line-height: 1.45;
+    }
+
+    .aviso-info svg { width: 24px; height: 24px; flex-shrink: 0; color: var(--ambar); margin-top: 1px; }
+
+    /* =========================================================
+       4b. MI EMBARAZO
+       ========================================================= */
+    .panel {
+      background: var(--blanco);
+      border-radius: var(--radio);
+      box-shadow: var(--sombra);
+      padding: 20px;
+    }
+
+    .panel + .panel { margin-top: 16px; }
+    .panel h3 { font-size: 20px; line-height: 1.25; }
+    .ayuda { margin-top: 4px; color: var(--texto-suave); font-size: 15px; }
+
+    .campo { display: block; margin-top: 16px; }
+    .campo > span { display: block; font-weight: 600; margin-bottom: 6px; }
+
+    .campo input {
+      width: 100%;
+      min-height: 56px;
+      padding: 10px 14px;
+      border: 2px solid var(--borde);
+      border-radius: 14px;
+      background: var(--blanco);
+      color: var(--texto);
+      font: inherit;
+      font-size: 18px;
+    }
+
+    .campo input:focus { outline: none; border-color: var(--rosa); box-shadow: 0 0 0 3px var(--rosa-claro); }
+    .pista { display: block; margin-top: 6px; color: var(--texto-suave); font-size: 14px; }
+    .error { min-height: 0; margin-top: 10px; color: var(--alarma); font-weight: 600; font-size: 15px; }
+    .error:empty { display: none; }
+
+    .boton {
+      display: block;
+      width: 100%;
+      min-height: 56px;
+      margin-top: 18px;
+      border: none;
+      border-radius: 16px;
+      background: var(--rosa);
+      color: var(--blanco);
+      font: inherit;
+      font-size: 18px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .boton:active { transform: scale(0.98); background: var(--rosa-oscuro); }
+
+    .boton-secundario {
+      display: block;
+      width: 100%;
+      min-height: 50px;
+      margin-top: 12px;
+      border: 2px solid var(--rosa-claro);
+      border-radius: 14px;
+      background: var(--blanco);
+      color: var(--rosa-oscuro);
+      font: inherit;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .boton-secundario:active { background: var(--rosa-claro); }
+    .boton:focus-visible, .boton-secundario:focus-visible, .flecha-mes:focus-visible { outline: 3px solid var(--lila); outline-offset: 2px; }
+
+    /* Resumen: semana actual y barra de progreso */
+    .semana-actual { display: flex; align-items: baseline; gap: 8px; margin-top: 2px; }
+    .semana-actual strong { font-size: 44px; line-height: 1.1; color: var(--rosa-oscuro); }
+    .semana-actual span { font-size: 18px; color: var(--texto-suave); font-weight: 600; }
+    .edad-exacta { font-size: 16px; color: var(--texto); }
+
+    .progreso {
+      margin-top: 14px;
+      height: 16px;
+      border-radius: 999px;
+      background: var(--rosa-claro);
+      overflow: hidden;
+    }
+
+    .progreso-relleno {
+      height: 100%;
+      width: 0;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--rosa), var(--lila));
+      transition: width 0.6s ease;
+    }
+
+    .progreso-texto { display: flex; justify-content: space-between; gap: 10px; margin-top: 6px; font-size: 14px; color: var(--texto-suave); }
+    .progreso-texto strong { color: var(--texto); }
+
+    .datos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+
+    .dato {
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: var(--fondo);
+    }
+
+    .dato small { display: block; font-size: 13px; color: var(--texto-suave); font-weight: 600; }
+    .dato b { display: block; font-size: 18px; line-height: 1.3; }
+    .dato.ancho { grid-column: 1 / -1; background: var(--lila-claro); }
+
+    .nota-suave {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: var(--rosa-claro);
+      font-size: 15px;
+      line-height: 1.45;
+    }
+
+    /* Carrusel de meses: se desliza con el dedo (scroll-snap) o con las flechas */
+    .meses-encabezado { display: flex; align-items: center; gap: 10px; }
+    .meses-encabezado h3 { flex: 1; }
+
+    .controles-mes { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; }
+
+    .flecha-mes {
+      flex-shrink: 0;
+      width: 52px;
+      height: 52px;
+      border: none;
+      border-radius: 50%;
+      background: var(--rosa-claro);
+      color: var(--rosa-oscuro);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .flecha-mes svg { width: 26px; height: 26px; }
+    .flecha-mes:active { transform: scale(0.94); }
+    .flecha-mes:disabled { opacity: 0.35; cursor: default; transform: none; }
+
+    .indicador-mes { flex: 1; text-align: center; min-width: 0; }
+    .indicador-mes b { display: block; font-size: 18px; }
+    .indicador-mes span { font-size: 14px; color: var(--texto-suave); }
+
+    .puntos { display: flex; justify-content: center; gap: 6px; margin-top: 8px; }
+    .puntos span { width: 8px; height: 8px; border-radius: 50%; background: var(--borde); transition: background 0.2s, transform 0.2s; }
+    .puntos span.activo { background: var(--rosa); transform: scale(1.3); }
+    .puntos span.actual { box-shadow: 0 0 0 2px var(--lila-claro); }
+
+    .carrusel {
+      display: flex;
+      align-items: flex-start;
+      margin: 12px -20px 0;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      scrollbar-width: none;
+      overscroll-behavior-x: contain;
+    }
+
+    .carrusel::-webkit-scrollbar { display: none; }
+
+    .mes-tarjeta {
+      flex: 0 0 100%;
+      scroll-snap-align: center;
+      scroll-snap-stop: always;
+      padding: 0 20px;
+    }
+
+    .dibujo-bebe { position: relative; display: block; width: 100%; max-width: 230px; margin: 0 auto; }
+    .dibujo-bebe svg { display: block; width: 100%; height: auto; }
+
+    /* Animaciones suaves del dibujo: el bebé flota y se mece, patea con el piecito,
+       el corazoncito late y suben burbujitas. Se apagan con "reducir movimiento". */
+    .dibujo-bebe .flota    { animation: flotar 4.5s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 60%; }
+    .dibujo-bebe .piecito  { animation: patear 5s ease-in-out infinite; transform-box: fill-box; transform-origin: 90% 20%; }
+    .dibujo-bebe .latido   { animation: latir 1.1s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+    .dibujo-bebe .burbuja  { animation: subir 6s ease-in infinite; transform-box: fill-box; }
+    .dibujo-bebe .burbuja.b2 { animation-delay: -2s; }
+    .dibujo-bebe .burbuja.b3 { animation-delay: -4s; }
+
+    @keyframes flotar {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50%      { transform: translateY(-4px) rotate(-3deg); }
+    }
+
+    @keyframes patear {
+      0%, 60%, 100% { transform: rotate(0deg); }
+      68%           { transform: rotate(-16deg); }
+      76%           { transform: rotate(4deg); }
+      84%           { transform: rotate(-10deg); }
+    }
+
+    @keyframes latir {
+      0%, 100% { transform: scale(1); }
+      15%      { transform: scale(1.25); }
+      30%      { transform: scale(1); }
+      45%      { transform: scale(1.15); }
+    }
+
+    @keyframes subir {
+      0%   { transform: translateY(0);     opacity: 0; }
+      15%  { opacity: 0.85; }
+      100% { transform: translateY(-60px); opacity: 0; }
+    }
+
+    .estas-aca {
+      position: absolute;
+      top: 4px;
+      right: -6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--lila);
+      color: var(--blanco);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .comparacion {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: var(--fondo);
+    }
+
+    .comparacion svg { flex-shrink: 0; width: 64px; height: 64px; }
+    .comparacion p { font-size: 16px; line-height: 1.35; }
+    .comparacion p b { color: var(--rosa-oscuro); }
+
+    .medidas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    .medidas div { padding: 10px 12px; border-radius: 14px; border: 2px solid var(--borde); }
+    .medidas small { display: block; font-size: 13px; color: var(--texto-suave); font-weight: 600; }
+    .medidas b { font-size: 18px; }
+
+    .mes-texto { margin-top: 12px; font-size: 16px; line-height: 1.55; }
+
+    .aviso-chico { margin-top: 14px; font-size: 13px; color: var(--texto-suave); text-align: center; line-height: 1.4; }
+
+    .pendiente-validacion {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      border: 1px dashed var(--ambar);
+      color: #7a5310;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    /* =========================================================
+       4c. MI DIARIO
+       ========================================================= */
+    .boton-grande {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      min-height: 64px;
+      margin: 0 0 16px;
+      font-size: 19px;
+      box-shadow: 0 6px 16px rgba(194, 85, 122, 0.3);
+    }
+
+    .boton-grande svg { width: 26px; height: 26px; }
+
+    .titulo-con-dato { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+    .titulo-con-dato span { font-size: 14px; color: var(--texto-suave); white-space: nowrap; }
+
+    .vacio { margin-top: 10px; color: var(--texto-suave); font-size: 16px; }
+
+    /* Historial */
+    .registros { list-style: none; display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+
+    .registro {
+      padding: 14px;
+      border-radius: 16px;
+      border: 2px solid var(--borde);
+      background: var(--blanco);
+    }
+
+    .registro-cabeza { display: flex; align-items: flex-start; gap: 10px; }
+    .registro-fecha { flex: 1; min-width: 0; }
+    .registro-fecha b { display: block; font-size: 16px; line-height: 1.3; }
+    .registro-fecha span { font-size: 14px; color: var(--texto-suave); }
+
+    .chip-semana {
+      display: inline-block;
+      margin-top: 4px;
+      padding: 2px 10px;
+      border-radius: 999px;
+      background: var(--lila-claro);
+      color: var(--lila);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .boton-borrar {
+      flex-shrink: 0;
+      width: 44px;
+      height: 44px;
+      border: none;
+      border-radius: 12px;
+      background: none;
+      color: var(--texto-suave);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .boton-borrar svg { width: 22px; height: 22px; }
+    .boton-borrar:active { background: var(--alarma-claro); color: var(--alarma); }
+    .boton-borrar:focus-visible { outline: 3px solid var(--rosa); outline-offset: 1px; }
+
+    .registro-datos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+
+    .registro-dato {
+      padding: 6px 10px;
+      border-radius: 10px;
+      background: var(--fondo);
+      font-size: 15px;
+    }
+
+    .registro-dato small { color: var(--texto-suave); font-weight: 600; margin-right: 4px; }
+    .registro-dato.alta { background: var(--alarma-claro); color: #8a1f1f; font-weight: 700; }
+
+    .registro-animo { display: inline-flex; align-items: center; gap: 6px; }
+    .registro-animo svg { width: 22px; height: 22px; }
+
+    .registro-sintomas { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .registro-sintomas span { padding: 3px 10px; border-radius: 999px; background: var(--rosa-claro); color: var(--rosa-oscuro); font-size: 14px; font-weight: 600; }
+
+    .registro-nota { margin-top: 8px; font-size: 15px; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+    .alerta-roja {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      margin-top: 10px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: var(--alarma);
+      color: var(--blanco);
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
+    .alerta-roja svg { width: 24px; height: 24px; flex-shrink: 0; }
+
+    /* Preguntas para mi médico */
+    .agregar-pregunta { display: flex; gap: 8px; margin-top: 12px; }
+
+    .agregar-pregunta input {
+      flex: 1;
+      min-width: 0;
+      min-height: 52px;
+      padding: 10px 14px;
+      border: 2px solid var(--borde);
+      border-radius: 14px;
+      font: inherit;
+      font-size: 16px;
+      color: var(--texto);
+    }
+
+    .agregar-pregunta input:focus { outline: none; border-color: var(--rosa); box-shadow: 0 0 0 3px var(--rosa-claro); }
+
+    .boton-chico {
+      flex-shrink: 0;
+      width: 52px;
+      height: 52px;
+      border: none;
+      border-radius: 14px;
+      background: var(--rosa);
+      color: var(--blanco);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .boton-chico svg { width: 24px; height: 24px; }
+    .boton-chico:active { background: var(--rosa-oscuro); transform: scale(0.96); }
+
+    .preguntas { list-style: none; margin-top: 10px; }
+
+    .pregunta {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      border-bottom: 1px solid var(--borde);
+    }
+
+    .pregunta:last-child { border-bottom: none; }
+
+    .pregunta label {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 56px;
+      padding: 8px 0;
+      cursor: pointer;
+    }
+
+    .pregunta input[type="checkbox"] { flex-shrink: 0; width: 26px; height: 26px; accent-color: var(--rosa); }
+    .pregunta span { font-size: 16px; line-height: 1.35; overflow-wrap: anywhere; }
+    .pregunta.hecha span { text-decoration: line-through; color: var(--texto-suave); }
+
+    .separador-hechas { margin-top: 12px; font-size: 13px; font-weight: 700; color: var(--texto-suave); text-transform: uppercase; letter-spacing: 0.8px; }
+
+    /* Hoja del formulario (sube desde abajo) */
+    .hoja-fondo {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      background: rgba(59, 42, 69, 0.45);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .hoja {
+      width: 100%;
+      max-width: 480px;
+      max-height: 92vh;
+      max-height: 92dvh;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      background: var(--blanco);
+      border-radius: 24px 24px 0 0;
+      padding: 10px 20px calc(24px + env(safe-area-inset-bottom));
+      animation: subir-hoja 0.25s ease;
+    }
+
+    @keyframes subir-hoja { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+    .hoja-asa { width: 44px; height: 5px; margin: 0 auto 14px; border-radius: 999px; background: var(--borde); }
+    .hoja h2 { font-size: 22px; }
+
+    .grupo { border: none; margin-top: 18px; }
+    .grupo legend { font-weight: 700; margin-bottom: 6px; }
+    .grupo .campo { margin-top: 0; }
+    .grupo .campo > span { font-weight: 600; font-size: 15px; color: var(--texto-suave); }
+
+    .fila-campos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .campo-corto input { max-width: 200px; }
+
+    .campo textarea {
+      width: 100%;
+      padding: 10px 14px;
+      border: 2px solid var(--borde);
+      border-radius: 14px;
+      font: inherit;
+      font-size: 16px;
+      color: var(--texto);
+      resize: vertical;
+    }
+
+    .campo textarea:focus { outline: none; border-color: var(--rosa); box-shadow: 0 0 0 3px var(--rosa-claro); }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .chip {
+      min-height: 46px;
+      padding: 8px 16px;
+      border: 2px solid var(--borde);
+      border-radius: 999px;
+      background: var(--blanco);
+      color: var(--texto);
+      font: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .chip[aria-pressed="true"] { border-color: var(--rosa); background: var(--rosa-claro); color: var(--rosa-oscuro); }
+    .chip[aria-pressed="true"]::before { content: "✓ "; }
+    .chip:focus-visible, .carita:focus-visible { outline: 3px solid var(--lila); outline-offset: 2px; }
+
+    .input-otro {
+      width: 100%;
+      min-height: 50px;
+      margin-top: 10px;
+      padding: 8px 14px;
+      border: 2px solid var(--borde);
+      border-radius: 14px;
+      font: inherit;
+      font-size: 16px;
+    }
+
+    .caritas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+
+    .carita {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      min-height: 92px;
+      padding: 10px 4px;
+      border: 2px solid var(--borde);
+      border-radius: 16px;
+      background: var(--blanco);
+      color: var(--texto);
+      font: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .carita svg { width: 44px; height: 44px; }
+    .carita[aria-checked="true"].bien    { border-color: #2e9d6a; background: #e8f6ef; }
+    .carita[aria-checked="true"].regular { border-color: var(--ambar); background: #fff6e0; }
+    .carita[aria-checked="true"].mal     { border-color: var(--lila); background: var(--lila-claro); }
+
+    .boton-texto {
+      display: block;
+      width: 100%;
+      min-height: 50px;
+      margin-top: 6px;
+      border: none;
+      background: none;
+      color: var(--texto-suave);
+      font: inherit;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* =========================================================
+       4d. NOMBRE DE LA PACIENTE (saludo en el encabezado + diálogo)
+       ========================================================= */
+    .saludo {
+      margin-left: auto;
+      max-width: 58%;
+      min-height: 40px;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.2);
+      color: var(--blanco);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .saludo span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .marca > svg { flex-shrink: 0; }   /* el ícono de la app no se achica si el nombre es largo */
+    .marca .saludo svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .saludo:active { background: rgba(255, 255, 255, 0.32); }
+    .saludo:focus-visible { outline: 3px solid var(--blanco); outline-offset: 2px; }
+
+    .dialogo-nombre {
+      width: min(92vw, 420px);
+      margin: auto;
+      padding: 22px;
+      border: none;
+      border-radius: 22px;
+      box-shadow: 0 10px 40px rgba(59, 42, 69, 0.25);
+      color: var(--texto);
+    }
+
+    .dialogo-nombre::backdrop { background: rgba(59, 42, 69, 0.45); }
+    .dialogo-nombre h2 { font-size: 22px; }
+    .dialogo-nombre label { display: block; margin-top: 16px; }
+    .dialogo-nombre label > span { display: block; font-weight: 600; margin-bottom: 6px; }
+    .dialogo-nombre label small { font-weight: 400; color: var(--texto-suave); }
+
+    .dialogo-nombre input {
+      width: 100%;
+      min-height: 54px;
+      padding: 10px 14px;
+      border: 2px solid var(--borde);
+      border-radius: 14px;
+      font: inherit;
+      font-size: 18px;
+      color: var(--texto);
+    }
+
+    .dialogo-nombre input:focus { outline: none; border-color: var(--rosa); box-shadow: 0 0 0 3px var(--rosa-claro); }
+    .dialogo-nombre .nota { margin-top: 12px; font-size: 14px; color: var(--texto-suave); }
+    .dialogo-nombre .acciones { display: flex; flex-direction: column; gap: 4px; margin-top: 18px; }
+
+    .dialogo-nombre .guardar {
+      min-height: 54px;
+      border: none;
+      border-radius: 16px;
+      background: var(--rosa);
+      color: var(--blanco);
+      font: inherit;
+      font-size: 18px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .dialogo-nombre .cancelar {
+      min-height: 46px;
+      border: none;
+      background: none;
+      color: var(--texto-suave);
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* =========================================================
+       4e. RESUMEN PARA MI CONTROL
+       ========================================================= */
+    .boton-resumen {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      min-height: 84px;
+      margin-bottom: 16px;
+      padding: 14px 14px 14px 16px;
+      border: 2px solid #d9c9ee;
+      border-left: 6px solid var(--lila);
+      border-radius: var(--radio);
+      background: var(--blanco);
+      box-shadow: var(--sombra);
+      color: var(--texto);
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .boton-resumen:active { transform: scale(0.98); }
+    .boton-resumen:focus-visible { outline: 3px solid var(--lila); outline-offset: 2px; }
+
+    .boton-resumen-icono {
+      flex-shrink: 0;
+      width: 52px;
+      height: 52px;
+      border-radius: 16px;
+      background: var(--lila-claro);
+      color: var(--lila);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .boton-resumen-icono svg { width: 28px; height: 28px; }
+    .boton-resumen-texto { flex: 1; min-width: 0; }
+    .boton-resumen-texto b { display: block; font-size: 18px; line-height: 1.25; }
+    .boton-resumen-texto small { display: block; font-size: 14px; color: var(--texto-suave); line-height: 1.3; margin-top: 2px; }
+    .boton-resumen-flecha { flex-shrink: 0; width: 24px; height: 24px; color: var(--lila); }
+
+    /* Pantalla completa del resumen */
+    .resumen-pantalla {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      background: var(--fondo);
+      font-size: 18px;
+    }
+
+    .resumen-barra {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      max-width: 480px;
+      margin: 0 auto;
+      padding: calc(8px + env(safe-area-inset-top)) 12px 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--blanco);
+      border-bottom: 1px solid var(--borde);
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    .resumen-volver {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      min-height: 46px;
+      padding: 6px 12px 6px 6px;
+      border: none;
+      border-radius: 12px;
+      background: var(--rosa-claro);
+      color: var(--rosa-oscuro);
+      font: inherit;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .resumen-volver svg { width: 22px; height: 22px; }
+
+    .resumen-contenido { max-width: 480px; margin: 0 auto; padding: 16px 16px calc(32px + env(safe-area-inset-bottom)); }
+
+    .res-cabecera {
+      padding: 18px;
+      border-radius: var(--radio);
+      background: linear-gradient(135deg, var(--rosa), var(--lila));
+      color: var(--blanco);
+    }
+
+    .res-paciente { font-size: 26px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+    .res-bebe { margin-top: 2px; font-size: 17px; opacity: 0.95; overflow-wrap: anywhere; }
+    .res-cifras { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; margin-top: 14px; }
+    .res-cifras div { padding: 10px 12px; border-radius: 14px; background: rgba(255, 255, 255, 0.18); }
+    .res-cifras small { display: block; font-size: 13px; font-weight: 600; opacity: 0.95; }
+    .res-cifras b { display: block; font-size: 22px; line-height: 1.25; }
+    .res-sin-fum { margin-top: 10px; font-size: 15px; }
+
+    .res-bloque {
+      margin-top: 14px;
+      padding: 18px;
+      border-radius: var(--radio);
+      background: var(--blanco);
+      box-shadow: var(--sombra);
+    }
+
+    .res-bloque h2 { font-size: 21px; line-height: 1.25; margin-bottom: 10px; }
+    .res-vacio { color: var(--texto-suave); font-size: 17px; }
+
+    .res-periodo-texto { font-size: 17px; font-weight: 600; }
+    .res-campo-fecha { display: block; margin-top: 12px; }
+    .res-campo-fecha span { display: block; font-size: 15px; font-weight: 600; color: var(--texto-suave); margin-bottom: 6px; }
+
+    .res-campo-fecha input {
+      width: 100%;
+      min-height: 52px;
+      padding: 8px 12px;
+      border: 2px solid var(--borde);
+      border-radius: 14px;
+      font: inherit;
+      font-size: 17px;
+      color: var(--texto);
+    }
+
+    .res-preguntas { border: 3px solid var(--lila); background: var(--lila-claro); }
+    .res-preguntas ol { padding-left: 26px; }
+    .res-preguntas li { font-size: 19px; font-weight: 600; line-height: 1.4; padding: 6px 0; overflow-wrap: anywhere; }
+    .res-preguntas li + li { border-top: 1px solid #d9c9ee; }
+
+    /* Gráficos */
+    .grafico { display: block; width: 100%; height: auto; margin-top: 4px; }
+    .grafico text { font-family: inherit; }
+
+    .leyenda { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 6px; font-size: 15px; color: var(--texto-suave); }
+    .leyenda span { display: inline-flex; align-items: center; gap: 6px; }
+    .leyenda i { display: inline-block; width: 18px; height: 3px; border-radius: 2px; }
+    .leyenda i.punto-alto { width: 10px; height: 10px; border-radius: 50%; background: var(--alarma); }
+
+    /* Tabla de presión */
+    .tabla-presion { width: 100%; margin-top: 12px; border-collapse: collapse; font-size: 17px; }
+    .tabla-presion th { text-align: left; font-size: 14px; color: var(--texto-suave); font-weight: 700; padding: 6px 8px; border-bottom: 2px solid var(--borde); }
+    .tabla-presion td { padding: 9px 8px; border-bottom: 1px solid var(--borde); }
+    .tabla-presion td:last-child, .tabla-presion th:last-child { text-align: right; }
+    .tabla-presion td b { font-size: 19px; }
+    .tabla-presion tr.alta td { background: var(--alarma-claro); color: #8a1f1f; }
+    .tabla-presion tr.alta td b::after { content: " ▲ alta"; font-size: 13px; }
+
+    /* Peso: primer y último valor */
+    .extremos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .extremos div { padding: 10px 12px; border-radius: 14px; background: var(--fondo); }
+    .extremos small { display: block; font-size: 14px; color: var(--texto-suave); font-weight: 600; }
+    .extremos b { display: block; font-size: 24px; line-height: 1.25; }
+
+    /* Síntomas: barras horizontales */
+    .barras { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .barra-fila { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: baseline; }
+    .barra-fila span { font-size: 18px; font-weight: 600; overflow-wrap: anywhere; }
+    .barra-fila b { font-size: 18px; white-space: nowrap; }
+    .barra-pista { grid-column: 1 / -1; height: 10px; border-radius: 999px; background: var(--rosa-claro); overflow: hidden; }
+    .barra-pista i { display: block; height: 100%; border-radius: 999px; background: var(--rosa); }
+
+    /* Cómo se sintió */
+    .animo-resumen { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .animo-resumen div { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 4px; border-radius: 14px; background: var(--fondo); }
+    .animo-resumen svg { width: 40px; height: 40px; }
+    .animo-resumen b { font-size: 26px; line-height: 1.1; }
+    .animo-resumen span { font-size: 15px; color: var(--texto-suave); font-weight: 600; }
+
+    .res-ya-fui { margin-top: 20px; }
+    .res-ok { margin-top: 10px; text-align: center; color: #2e7d55; font-weight: 600; font-size: 16px; }
+    .res-ok:empty { display: none; }
+    .res-pie { margin-top: 16px; text-align: center; font-size: 14px; color: var(--texto-suave); }
+
+    /* =========================================================
+       4f. MIS CONTROLES
+       ========================================================= */
+    /* Aviso del próximo turno arriba de "Mi diario" */
+    .aviso-turno {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      margin-bottom: 16px;
+      padding: 12px 14px;
+      border: none;
+      border-radius: 16px;
+      background: var(--lila);
+      color: var(--blanco);
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+      box-shadow: 0 6px 16px rgba(125, 91, 166, 0.3);
+    }
+
+    .aviso-turno:active { transform: scale(0.98); }
+    .aviso-turno:focus-visible { outline: 3px solid var(--rosa); outline-offset: 2px; }
+    .aviso-turno-icono { flex-shrink: 0; width: 44px; height: 44px; border-radius: 12px; background: rgba(255, 255, 255, 0.2); display: flex; align-items: center; justify-content: center; }
+    .aviso-turno-icono svg { width: 24px; height: 24px; }
+    .aviso-turno-texto { flex: 1; min-width: 0; }
+    .aviso-turno-texto b { display: block; font-size: 17px; line-height: 1.3; }
+    .aviso-turno-texto small { display: block; font-size: 14px; opacity: 0.92; overflow-wrap: anywhere; }
+
+    /* Próximo turno destacado */
+    .proximo-turno {
+      margin-top: 12px;
+      padding: 16px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, var(--lila), var(--rosa));
+      color: var(--blanco);
+    }
+
+    .proximo-turno small { display: block; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; opacity: 0.9; }
+    .proximo-turno b { display: block; margin-top: 4px; font-size: 22px; line-height: 1.25; }
+    .proximo-turno p { margin-top: 4px; font-size: 16px; overflow-wrap: anywhere; }
+    .proximo-turno .falta { display: inline-block; margin-top: 8px; padding: 3px 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.22); font-size: 14px; font-weight: 700; }
+
+    .turnos { list-style: none; margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+
+    .turno {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 6px 10px 12px;
+      border-radius: 14px;
+      border: 2px solid var(--borde);
+    }
+
+    .turno-fecha {
+      flex-shrink: 0;
+      width: 52px;
+      padding: 4px 0;
+      border-radius: 12px;
+      background: var(--lila-claro);
+      color: var(--lila);
+      text-align: center;
+      line-height: 1.1;
+    }
+
+    .turno-fecha b { display: block; font-size: 20px; }
+    .turno-fecha small { display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+    .turno-texto { flex: 1; min-width: 0; }
+    .turno-texto b { display: block; font-size: 16px; }
+    .turno-texto span { display: block; font-size: 14px; color: var(--texto-suave); overflow-wrap: anywhere; }
+
+    .turnos-pasados { margin-top: 14px; }
+    .turnos-pasados summary { min-height: 44px; display: flex; align-items: center; font-weight: 600; color: var(--texto-suave); cursor: pointer; }
+    .turnos-pasados .turno { opacity: 0.7; }
+
+    /* Checklist */
+    .trimestre-actual {
+      margin-top: 10px;
+      padding: 10px 14px;
+      border-radius: 14px;
+      background: var(--lila-claro);
+      font-size: 16px;
+    }
+
+    .grupo-trimestre {
+      margin-top: 14px;
+      border: 2px solid var(--borde);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .grupo-trimestre.actual { border-color: var(--lila); box-shadow: 0 0 0 3px var(--lila-claro); }
+
+    .grupo-trimestre summary {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 56px;
+      padding: 10px 14px;
+      cursor: pointer;
+      list-style: none;
+    }
+
+    .grupo-trimestre summary::-webkit-details-marker { display: none; }
+    .grupo-trimestre summary::after { content: "▾"; margin-left: auto; color: var(--texto-suave); transition: transform 0.2s; }
+    .grupo-trimestre[open] summary::after { transform: rotate(180deg); }
+    .grupo-trimestre.actual summary { background: var(--lila-claro); }
+    .grupo-trimestre summary b { font-size: 18px; }
+    .grupo-trimestre summary span { font-size: 14px; color: var(--texto-suave); }
+
+    .marca-actual { padding: 2px 8px; border-radius: 999px; background: var(--lila); color: var(--blanco) !important; font-size: 12px !important; font-weight: 700; }
+
+    .items { list-style: none; padding: 0 14px 6px; }
+
+    .item {
+      display: flex;
+      gap: 12px;
+      padding: 12px 0;
+      border-top: 1px solid var(--borde);
+    }
+
+    .item:first-child { border-top: none; }
+    .item > input[type="checkbox"] { flex-shrink: 0; width: 26px; height: 26px; margin-top: 2px; accent-color: var(--rosa); cursor: pointer; }
+    .item-cuerpo { flex: 1; min-width: 0; }
+    .item-nombre { display: block; font-size: 17px; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; cursor: pointer; }
+    .item.hecho .item-nombre { color: var(--texto-suave); text-decoration: line-through; }
+    .item-etiquetas { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+    .item-etiquetas span { padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--fondo); color: var(--texto-suave); }
+    .item-etiquetas .tipo-vacuna  { background: #e8f6ef; color: #23784f; }
+    .item-etiquetas .tipo-estudio { background: var(--rosa-claro); color: var(--rosa-oscuro); }
+    .item-etiquetas .tipo-control { background: var(--lila-claro); color: var(--lila); }
+    .item-etiquetas .tipo-propio  { background: #fff6e0; color: #7a5310; }
+    .item-para-que { margin-top: 4px; font-size: 15px; color: var(--texto-suave); line-height: 1.4; }
+    .item-para-que b { color: var(--texto); font-weight: 600; }
+
+    .item-fecha { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 14px; color: var(--texto-suave); }
+
+    .item-fecha input {
+      min-height: 40px;
+      padding: 4px 8px;
+      border: 2px solid var(--borde);
+      border-radius: 10px;
+      font: inherit;
+      font-size: 15px;
+      color: var(--texto);
+    }
+
+    .agregar-item { margin-top: 18px; padding-top: 16px; border-top: 2px dashed var(--borde); }
+    .agregar-item h4 { font-size: 17px; }
+    .campo > span small { font-weight: 400; color: var(--texto-suave); }
+    .opciones-trimestre { display: flex; gap: 8px; }
+    .opciones-trimestre .chip { flex: 1; }
+    .chip[role="radio"][aria-checked="true"] { border-color: var(--rosa); background: var(--rosa-claro); color: var(--rosa-oscuro); }
+
+    /* =========================================================
+       4g. ALARMA
+       ========================================================= */
+    .alarma-mensaje {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      padding: 18px 16px;
+      border-radius: var(--radio);
+      background: var(--alarma);
+      color: var(--blanco);
+      box-shadow: 0 6px 18px rgba(208, 58, 58, 0.3);
+    }
+
+    .alarma-mensaje svg { width: 34px; height: 34px; flex-shrink: 0; }
+    .alarma-mensaje p { font-size: 20px; line-height: 1.35; font-weight: 600; }
+    .alarma-mensaje strong { font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
+
+    .llamar { display: flex; flex-direction: column; gap: 10px; margin: 16px 0; }
+
+    .boton-llamar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-height: 72px;
+      padding: 12px 18px;
+      border-radius: 18px;
+      color: var(--blanco);
+      text-decoration: none;
+      box-shadow: var(--sombra);
+    }
+
+    .boton-llamar svg { width: 30px; height: 30px; flex-shrink: 0; }
+    .boton-llamar b { display: block; font-size: 19px; line-height: 1.25; }
+    .boton-llamar small { display: block; font-size: 16px; opacity: 0.95; letter-spacing: 0.5px; }
+    .boton-llamar:active { transform: scale(0.98); }
+    .boton-llamar:focus-visible { outline: 3px solid var(--texto); outline-offset: 2px; }
+    .boton-llamar.guardia { background: var(--alarma); }
+    .boton-llamar.emergencias { background: #a82424; }
+
+    .llamar-911 { align-self: center; display: block; padding: 10px 8px; color: #8a1f1f; font-size: 16px; text-align: center; }
+
+    .falta-completar {
+      padding: 10px 12px;
+      border: 2px dashed var(--ambar);
+      border-radius: 12px;
+      background: #fff8e6;
+      color: #5c4300;
+      font-size: 14px;
+    }
+
+    .como-llegar { margin-bottom: 16px; }
+    .como-llegar-fila { display: flex; gap: 12px; align-items: flex-start; }
+    .como-llegar-icono { flex-shrink: 0; width: 48px; height: 48px; border-radius: 14px; background: var(--alarma-claro); color: var(--alarma); display: flex; align-items: center; justify-content: center; }
+    .como-llegar-icono svg { width: 26px; height: 26px; }
+    .como-llegar b { font-size: 17px; line-height: 1.3; }
+    .como-llegar p { font-size: 16px; color: var(--texto-suave); }
+    .como-llegar .falta-completar { margin-top: 6px; }
+    .boton-mapa { display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; font-size: 17px; }
+    .boton-mapa svg { width: 22px; height: 22px; }
+
+    .signos { list-style: none; margin: 10px 0 12px; }
+    .signo { display: flex; gap: 14px; align-items: flex-start; padding: 12px 0; border-top: 1px solid var(--borde); }
+    .signo:first-child { border-top: none; }
+    .signo-icono { flex-shrink: 0; width: 48px; height: 48px; border-radius: 50%; background: var(--alarma-claro); color: var(--alarma); display: flex; align-items: center; justify-content: center; }
+    .signo-icono svg { width: 26px; height: 26px; }
+    .signo b { display: block; font-size: 17px; line-height: 1.3; }
+    .signo p { margin-top: 2px; font-size: 16px; color: var(--texto-suave); line-height: 1.4; }
+
+    /* Aviso en "Mi diario" que lleva a Alarma */
+    .aviso-alarma {
+      margin-top: 10px;
+      padding: 12px 14px;
+      border: 2px solid var(--alarma);
+      border-radius: 14px;
+      background: var(--alarma-claro);
+      color: #7a1f1f;
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+
+    .boton-ir-alarma {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      min-height: 50px;
+      margin-top: 10px;
+      border: none;
+      border-radius: 12px;
+      background: var(--alarma);
+      color: var(--blanco);
+      font: inherit;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .boton-ir-alarma svg { width: 20px; height: 20px; }
+    .boton-ir-alarma:active { transform: scale(0.98); }
+
+    [hidden] { display: none !important; }
+
+    /* =========================================================
+       5. BARRA DE NAVEGACIÓN INFERIOR (fija abajo, 4 botones)
+       ========================================================= */
+    .nav-inferior {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 480px;
+      height: calc(var(--alto-nav) + env(safe-area-inset-bottom));
+      padding-bottom: env(safe-area-inset-bottom);
+      background: var(--blanco);
+      border-top: 1px solid var(--borde);
+      box-shadow: 0 -4px 18px rgba(59, 42, 69, 0.06);
+      display: flex;
+      z-index: 10;
+    }
+
+    .nav-boton {
+      flex: 1;                        /* los 4 botones ocupan el mismo ancho */
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      border: none;
+      background: none;
+      color: var(--texto-suave);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.15;
+      text-align: center;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    .nav-boton svg {
+      width: 28px;
+      height: 28px;
+      padding: 4px 14px;
+      box-sizing: content-box;
+      border-radius: 999px;
+      transition: background 0.2s;
+    }
+
+    /* Estado activo: ícono con fondo rosa claro y texto rosa */
+    .nav-boton.activo { color: var(--rosa-oscuro); }
+    .nav-boton.activo svg { background: var(--rosa-claro); }
+
+    /* Alarma: siempre en rojo, para encontrarla rápido */
+    .nav-boton.alarma { color: var(--alarma); font-weight: 700; }
+    .nav-boton.alarma svg { background: var(--alarma); color: var(--blanco); }
+    .nav-boton.alarma.activo svg { box-shadow: 0 0 0 3px var(--alarma-claro); }
+
+    .nav-boton:focus-visible { outline: 3px solid var(--rosa); outline-offset: -6px; border-radius: 12px; }
+
+    /* Celulares angostos (≤ 360 px) */
+    @media (max-width: 360px) {
+      main { padding-left: 12px; padding-right: 12px; }
+      .nav-boton { font-size: 12px; }
+      .nav-boton svg { padding: 4px 10px; }
+    }
+
+    /* Si el usuario pidió menos movimiento en su celular, se apagan las animaciones */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+
+    <!-- ===================== ENCABEZADO ===================== -->
+    <header class="encabezado" id="encabezado">
+      <div class="marca">
+        <!-- Ícono de cochecito de bebé -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 5h2.5l2 7h11a6.5 6.5 0 0 0-6.5-6.5H11V12"/>
+          <circle cx="9" cy="18" r="2"/>
+          <circle cx="17" cy="18" r="2"/>
+        </svg>
+        MamaSegui
+        <!-- Saludo con el nombre de la paciente (al tocarlo se edita el nombre) -->
+        <button type="button" class="saludo" id="btn-saludo" aria-label="Editar tu nombre y el de tu bebé">
+          <span id="texto-saludo">Agregá tu nombre</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+        </button>
+      </div>
+      <!-- Este título cambia según la sección (lo actualiza el JavaScript) -->
+      <h1 id="titulo">Mi diario</h1>
+      <p id="subtitulo">Cómo te sentís hoy</p>
+    </header>
+
+    <!-- ===================== CONTENIDO ===================== -->
+    <main>
+
+      <!-- Sección 1: Mi diario (la principal, se abre al iniciar) -->
+      <section id="diario" class="seccion activa">
+
+        <!-- Aviso del próximo turno (sale de "Mis controles"; al tocarlo lleva ahí) -->
+        <button type="button" class="aviso-turno" id="aviso-turno" hidden>
+          <span class="aviso-turno-icono">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 17.5h.01M12 17.5h.01"/></svg>
+          </span>
+          <span class="aviso-turno-texto">
+            <b id="aviso-turno-titulo"></b>
+            <small id="aviso-turno-detalle"></small>
+          </span>
+        </button>
+
+        <!-- Botón principal: abre el formulario de registro -->
+        <button type="button" class="boton boton-grande" id="btn-agregar-registro">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          Agregar registro
+        </button>
+
+        <!-- Botón destacado: resumen para mostrarle al médico -->
+        <button type="button" class="boton-resumen" id="btn-resumen">
+          <span class="boton-resumen-icono">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="5" y="4" width="14" height="18" rx="2"/><path d="M9 2h6v4H9z"/><path d="M8.5 16l2.5-3 2 2 3-4"/>
+            </svg>
+          </span>
+          <span class="boton-resumen-texto">
+            <b>Resumen para mi control</b>
+            <small>Para mostrarle a tu médico u obstétrica</small>
+          </span>
+          <svg class="boton-resumen-flecha" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+
+        <!-- Historial de registros (lo arma el JavaScript) -->
+        <div class="panel">
+          <div class="titulo-con-dato">
+            <h3>Mis registros</h3>
+            <span id="diario-cantidad"></span>
+          </div>
+          <p class="vacio" id="diario-vacio">Todavía no anotaste nada. Tocá <b>"Agregar registro"</b> para empezar tu diario.</p>
+          <ul class="registros" id="lista-registros"></ul>
+        </div>
+
+        <!-- Preguntas para mi médico -->
+        <div class="panel">
+          <div class="titulo-con-dato">
+            <h3>Preguntas para mi médico</h3>
+            <span id="preguntas-cantidad"></span>
+          </div>
+          <p class="ayuda">Anotá tus dudas y tildalas cuando ya las preguntaste en la consulta.</p>
+          <form class="agregar-pregunta" id="form-pregunta" novalidate>
+            <input id="pregunta-texto" type="text" maxlength="200" autocomplete="off" placeholder="Ej: ¿Puedo seguir haciendo gimnasia?" aria-label="Nueva pregunta">
+            <button type="submit" class="boton-chico" aria-label="Agregar pregunta">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+          </form>
+          <ul class="preguntas" id="lista-preguntas"></ul>
+        </div>
+      </section>
+
+      <!-- Sección 2: Mi embarazo -->
+      <section id="embarazo" class="seccion">
+
+        <!-- Formulario de la fecha de última menstruación (FUM).
+             Se muestra si todavía no la cargó, o al tocar "Cambiar fecha". -->
+        <form class="panel" id="form-fum" novalidate hidden>
+          <h3 id="fum-titulo">¿Cuándo fue tu última menstruación?</h3>
+          <p class="ayuda">Con esa fecha calculamos de cuántas semanas estás y cuándo nacería tu bebé.</p>
+          <label class="campo">
+            <span>Primer día de tu última menstruación</span>
+            <input id="fum-fecha" type="date" required>
+            <small class="pista">Si en una ecografía te dieron otra fecha, tu médico u obstétrica te va a decir cuál usar.</small>
+          </label>
+          <p class="error" id="fum-error" role="alert"></p>
+          <button type="submit" class="boton">Guardar</button>
+          <button type="button" class="boton-secundario" id="fum-cancelar" hidden>Cancelar</button>
+        </form>
+
+        <!-- Resumen: semana, mes, trimestre y fecha probable de parto -->
+        <div class="panel" id="resumen-embarazo" hidden>
+          <h3>Estás en la semana</h3>
+          <div class="semana-actual"><strong id="emb-semana">–</strong></div>
+          <p class="edad-exacta" id="emb-exacta"></p>
+
+          <div class="progreso" role="progressbar" aria-valuemin="0" aria-valuemax="40" id="emb-progreso">
+            <div class="progreso-relleno" id="emb-relleno"></div>
+          </div>
+          <div class="progreso-texto">
+            <strong id="emb-progreso-texto">Semana 0 de 40</strong>
+            <span id="emb-faltan"></span>
+          </div>
+
+          <div class="datos">
+            <div class="dato"><small>Mes</small><b id="emb-mes">–</b></div>
+            <div class="dato"><small>Trimestre</small><b id="emb-trimestre">–</b></div>
+            <div class="dato ancho"><small>Fecha probable de parto</small><b id="emb-fpp">–</b></div>
+          </div>
+
+          <p class="nota-suave" id="emb-nota" hidden></p>
+
+          <button type="button" class="boton-secundario" id="fum-cambiar">Cambiar fecha de última menstruación</button>
+        </div>
+
+        <!-- Mes a mes: carrusel con los 9 meses (las tarjetas las arma el JavaScript) -->
+        <div class="panel">
+          <div class="meses-encabezado">
+            <h3>Tu bebé mes a mes</h3>
+          </div>
+
+          <div class="controles-mes">
+            <button type="button" class="flecha-mes" id="mes-anterior" aria-label="Mes anterior">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+            </button>
+            <div class="indicador-mes" aria-live="polite">
+              <b id="mes-nombre">Mes 1</b>
+              <span id="mes-semanas">Semanas 1 a 4</span>
+            </div>
+            <button type="button" class="flecha-mes" id="mes-siguiente" aria-label="Mes siguiente">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+            </button>
+          </div>
+          <div class="puntos" id="mes-puntos" aria-hidden="true"></div>
+
+          <div class="carrusel" id="carrusel-meses" tabindex="0" aria-label="Meses del embarazo. Deslizá para ver otros meses."></div>
+
+          <p class="aviso-chico">
+            Medidas aproximadas. Cada bebé crece a su ritmo.<br>
+            <span class="pendiente-validacion">Textos pendientes de validación por Obstetricia</span>
+          </p>
+        </div>
+      </section>
+
+      <!-- Sección 3: Mis controles -->
+      <section id="controles" class="seccion">
+
+        <!-- ============ MIS TURNOS ============ -->
+        <div class="panel">
+          <div class="titulo-con-dato">
+            <h3>Mis turnos</h3>
+            <span id="turnos-cantidad"></span>
+          </div>
+
+          <!-- Próximo turno, bien destacado (lo completa el JavaScript) -->
+          <div class="proximo-turno" id="proximo-turno" hidden></div>
+          <p class="vacio" id="turnos-vacio">No tenés turnos cargados. Agregá el próximo para tenerlo siempre a mano.</p>
+
+          <button type="button" class="boton-secundario" id="btn-agregar-turno">+ Agregar turno</button>
+
+          <ul class="turnos" id="lista-turnos"></ul>
+
+          <details class="turnos-pasados" id="turnos-pasados" hidden>
+            <summary id="turnos-pasados-titulo">Turnos anteriores</summary>
+            <ul class="turnos" id="lista-turnos-pasados"></ul>
+          </details>
+        </div>
+
+        <!-- ============ MI CHECKLIST DEL EMBARAZO ============ -->
+        <div class="panel">
+          <div class="titulo-con-dato">
+            <h3>Mi checklist del embarazo</h3>
+            <span id="checklist-progreso"></span>
+          </div>
+          <p class="ayuda">Controles, estudios y vacunas recomendados. Tildalos cuando te los hagas y anotá la fecha.</p>
+          <p class="trimestre-actual" id="trimestre-actual" hidden></p>
+          <span class="pendiente-validacion">Contenido pendiente de validación por Obstetricia</span>
+
+          <!-- Grupos por trimestre (los arma el JavaScript) -->
+          <div id="checklist-grupos"></div>
+
+          <!-- Ítems propios -->
+          <form class="agregar-item" id="form-item" novalidate>
+            <h4>Agregar algo que te indicó tu médico</h4>
+            <label class="campo">
+              <span>¿Qué es?</span>
+              <input id="item-nombre" type="text" maxlength="80" autocomplete="off" placeholder="Ej: Ecocardiograma fetal">
+            </label>
+            <label class="campo">
+              <span>¿Para qué sirve? <small>(opcional)</small></span>
+              <input id="item-para-que" type="text" maxlength="120" autocomplete="off" placeholder="Ej: Para ver el corazón del bebé">
+            </label>
+            <fieldset class="grupo">
+              <legend>¿En qué trimestre?</legend>
+              <div class="opciones-trimestre" id="item-trimestre" role="radiogroup" aria-label="Trimestre">
+                <button type="button" class="chip" role="radio" aria-checked="false" data-valor="1">1.º</button>
+                <button type="button" class="chip" role="radio" aria-checked="false" data-valor="2">2.º</button>
+                <button type="button" class="chip" role="radio" aria-checked="false" data-valor="3">3.º</button>
+              </div>
+            </fieldset>
+            <p class="error" id="item-error" role="alert"></p>
+            <button type="submit" class="boton">Agregar al checklist</button>
+          </form>
+        </div>
+      </section>
+
+      <!-- Sección 4: Alarma (destacada en rojo) -->
+      <section id="alarma" class="seccion">
+        <!-- ⚠ PENDIENTE DE VALIDACIÓN POR OBSTETRICIA: todo el contenido de esta sección.
+             Está escrito directo en el HTML para que funcione sin conexión aunque falle el JavaScript. -->
+
+        <!-- 1. Mensaje principal -->
+        <div class="alarma-mensaje" role="alert">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+          <p>Si tenés alguno de estos síntomas, <strong>andá a la guardia ahora</strong>. No esperes al próximo turno.</p>
+        </div>
+
+        <!-- 3. Botones para llamar (arriba, para no tener que buscarlos en una urgencia).
+             Los números se completan en HOSPITAL, en la sección 12 del JavaScript. -->
+        <div class="llamar">
+          <a class="boton-llamar guardia" id="llamar-guardia" href="#" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>
+            <span><b>Llamar a la guardia del hospital</b><small id="numero-guardia"></small></span>
+          </a>
+
+          <a class="boton-llamar emergencias" id="llamar-emergencias" href="tel:107">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>
+            <span><b>Emergencias</b><small id="numero-emergencias">107</small></span>
+          </a>
+          <a class="llamar-911" href="tel:911">También podés llamar al <b>911</b></a>
+        </div>
+
+        <!-- 4. "Cómo llegar": busca guardias cercanas, o el hospital cargado en HOSPITAL (sección 12 del JavaScript) -->
+        <div class="panel como-llegar">
+          <div class="como-llegar-fila">
+            <span class="como-llegar-icono">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s7-6.1 7-12a7 7 0 0 0-14 0c0 5.9 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>
+            </span>
+            <div>
+              <b id="hospital-nombre">Guardias cerca tuyo</b>
+              <p id="hospital-direccion">Buscá en el mapa la guardia o maternidad más cercana.</p>
+            </div>
+          </div>
+          <a class="boton-secundario boton-mapa" id="boton-mapa" href="https://www.google.com/maps/search/?api=1&amp;query=guardia%20maternidad%20cerca" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-8-8 18-2-8z"/></svg>
+            Cómo llegar
+          </a>
+          <small class="pista">El mapa necesita internet. Llamar funciona siempre.</small>
+        </div>
+
+        <!-- 2. Signos de alarma -->
+        <div class="panel">
+          <h3>Signos de alarma</h3>
+          <p class="ayuda">Si te pasa cualquiera de estas cosas, no esperes: andá a la guardia.</p>
+          <ul class="signos">
+            <li class="signo">
+              <span class="signo-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3s6 6.6 6 11a6 6 0 0 1-12 0c0-4.4 6-11 6-11z"/></svg></span>
+              <div><b>Sangrado</b><p>Cualquier sangrado por la vagina, aunque sea poco.</p></div>
+            </li>
+            <li class="signo">
+              <span class="signo-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4s3 3.3 3 5.5a3 3 0 0 1-6 0C4 7.3 7 4 7 4z"/><path d="M16 9s4 4.4 4 7.3a4 4 0 0 1-8 0C12 13.4 16 9 16 9z"/></svg></span>
+              <div><b>Pérdida de líquido</b><p>Si te moja la bombacha un líquido como agua, aunque sea de a poco.</p></div>
+            </li>
+            <li class="signo">
+              <span class="signo-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 4l16 16"/></svg></span>
+              <div><b>Dolor de cabeza fuerte o visión borrosa</b><p>Un dolor de cabeza que no se va, ver borroso o ver lucecitas, o un zumbido en los oídos.</p></div>
+            </li>
+            <li class="signo">
+              <span class="signo-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01"/><path d="M9.5 15h5"/><path d="M3 12h-1M22 12h-1"/></svg></span>
+              <div><b>Hinchazón de golpe en la cara o las manos</b><p>Si de un momento a otro se te hinchan la cara, los párpados o las manos.</p></div>
+            </li>
+            <li class="signo">
+              <span class="signo-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/><path d="M12 10v6"/></svg></span>
+              <div><b>Fiebre</b><p>Temperatura de 38 °C o más.</p></div>
+            </li>
+            <li class="signo">
+              <span class="signo-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="13" rx="7" ry="8"/><path d="M13 9l-2 4h3l-2 4"/></svg></span>
+              <div><b>Dolor fuerte en la panza</b><p>Un dolor fuerte o que no se calma, en la panza o en la boca del estómago.</p></div>
+            </li>
+            <li class="signo">
+              <span class="signo-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/><path d="M10 2h4"/></svg></span>
+              <div><b>Contracciones antes de tiempo</b><p>Antes de la semana 37, si se te pone dura la panza seguido o tenés dolores que van y vienen.</p></div>
+            </li>
+            <li class="signo">
+              <span class="signo-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/><path d="M8 12h8"/></svg></span>
+              <div><b>El bebé se mueve menos</b><p>Si sentís que se mueve menos que de costumbre, o dejás de sentirlo.</p></div>
+            </li>
+            <li class="signo">
+              <span class="signo-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 14.5A3.5 3.5 0 0 0 12 18a3.5 3.5 0 0 0 3.5-3.5c0-2-3.5-6.5-3.5-6.5s-3.5 4.5-3.5 6.5z"/><path d="M12 2c1 1.5 1 3 0 4.5M8 3c.8 1.2.8 2.3 0 3.5M16 3c.8 1.2.8 2.3 0 3.5"/></svg></span>
+              <div><b>Ardor al hacer pis</b><p>Ardor o dolor al orinar, o ganas de hacer pis a cada rato.</p></div>
+            </li>
+            <li class="signo">
+              <span class="signo-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 10q1-1.5 2 0M14 10q1-1.5 2 0"/><path d="M9 16q3-2.5 6 0"/></svg></span>
+              <div><b>Vómitos que no paran</b><p>Vomitar muchas veces al día y no poder tomar ni líquidos.</p></div>
+            </li>
+            <li class="signo">
+              <span class="signo-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>
+              <div><b>Convulsiones o desmayos</b><p>Si tenés una convulsión o te desmayás. Que alguien llame enseguida a emergencias.</p></div>
+            </li>
+          </ul>
+          <span class="pendiente-validacion">Contenido pendiente de validación por Obstetricia</span>
+        </div>
+      </section>
+
+      <!-- Aviso visible en todas las secciones -->
+      <div class="aviso-info" role="note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/><path d="M12 16v-5"/><path d="M12 8h.01"/>
+        </svg>
+        <div>
+          MamaSegui es <strong>orientativa</strong> y <strong>no reemplaza los controles con tu médico u obstétrica</strong>.
+        </div>
+      </div>
+
+    </main>
+
+    <!-- ===================== BARRA INFERIOR ===================== -->
+    <!-- data-seccion indica qué <section> muestra cada botón -->
+    <nav class="nav-inferior" aria-label="Navegación principal">
+      <button class="nav-boton activo" data-seccion="diario" aria-current="page">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5z"/>
+          <path d="M4 21.5A2.5 2.5 0 0 1 6.5 19H20v3H6.5"/>
+        </svg>
+        Mi diario
+      </button>
+      <button class="nav-boton" data-seccion="embarazo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 5h2.5l2 7h11a6.5 6.5 0 0 0-6.5-6.5H11V12"/>
+          <circle cx="9" cy="18" r="2"/>
+          <circle cx="17" cy="18" r="2"/>
+        </svg>
+        Mi embarazo
+      </button>
+      <button class="nav-boton" data-seccion="controles">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="5" y="4" width="14" height="18" rx="2"/>
+          <path d="M9 2h6v4H9z"/>
+          <path d="M9 13l2 2 4-4"/>
+        </svg>
+        Mis controles
+      </button>
+      <button class="nav-boton alarma" data-seccion="alarma">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.7 21a2 2 0 0 1-3.4 0"/>
+        </svg>
+        Alarma
+      </button>
+    </nav>
+
+    <!-- ===================== FORMULARIO DE TURNO (Mis controles) ===================== -->
+    <div class="hoja-fondo" id="turno-fondo" hidden>
+      <form class="hoja" id="form-turno" novalidate role="dialog" aria-modal="true" aria-labelledby="turno-titulo">
+        <div class="hoja-asa"></div>
+        <h2 id="turno-titulo">Nuevo turno</h2>
+
+        <div class="fila-campos">
+          <label class="campo">
+            <span>Fecha</span>
+            <input id="turno-fecha" type="date" required>
+          </label>
+          <label class="campo">
+            <span>Hora</span>
+            <input id="turno-hora" type="time" required>
+          </label>
+        </div>
+
+        <fieldset class="grupo">
+          <legend>¿Qué tipo de turno?</legend>
+          <div class="chips" id="turno-tipo" role="radiogroup" aria-label="Tipo de turno">
+            <button type="button" class="chip" role="radio" aria-checked="true"  data-valor="control">Control obstétrico</button>
+            <button type="button" class="chip" role="radio" aria-checked="false" data-valor="ecografia">Ecografía</button>
+            <button type="button" class="chip" role="radio" aria-checked="false" data-valor="laboratorio">Laboratorio</button>
+            <button type="button" class="chip" role="radio" aria-checked="false" data-valor="vacuna">Vacuna</button>
+            <button type="button" class="chip" role="radio" aria-checked="false" data-valor="otro">Otro</button>
+          </div>
+        </fieldset>
+
+        <label class="campo">
+          <span>Lugar <small>(opcional)</small></span>
+          <input id="turno-lugar" type="text" maxlength="80" autocomplete="off" placeholder="Ej: Hospital, consultorio 3">
+        </label>
+
+        <p class="error" id="turno-error" role="alert"></p>
+        <button type="submit" class="boton">Guardar turno</button>
+        <button type="button" class="boton-texto" id="turno-cancelar">Cancelar</button>
+      </form>
+    </div>
+
+    <!-- ===================== RESUMEN PARA MI CONTROL ===================== -->
+    <!-- Pantalla completa, letra grande, pensada para mostrarle al médico desde el celular.
+         El contenido lo completa el JavaScript (sección 10). -->
+    <div class="resumen-pantalla" id="pantalla-resumen" role="dialog" aria-modal="true" aria-labelledby="resumen-titulo" hidden>
+      <div class="resumen-barra">
+        <button type="button" class="resumen-volver" id="resumen-volver">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+          Volver
+        </button>
+        <span id="resumen-titulo">Resumen para mi control</span>
+      </div>
+
+      <div class="resumen-contenido">
+        <!-- 1. Encabezado: paciente, bebé, semana y fecha probable de parto -->
+        <header class="res-cabecera">
+          <p class="res-paciente" id="res-paciente"></p>
+          <p class="res-bebe" id="res-bebe" hidden></p>
+          <div class="res-cifras">
+            <div><small>Embarazo de</small><b id="res-semana">–</b></div>
+            <div><small>Fecha probable de parto</small><b id="res-fpp">–</b></div>
+          </div>
+          <p class="res-sin-fum" id="res-sin-fum" hidden>Para ver la semana, cargá la fecha de tu última menstruación en "Mi embarazo".</p>
+        </header>
+
+        <!-- 2. Período del resumen -->
+        <section class="res-bloque res-periodo">
+          <p class="res-periodo-texto" id="res-periodo-texto"></p>
+          <label class="res-campo-fecha">
+            <span>Fecha de mi último control</span>
+            <input type="date" id="res-ultimo-control">
+          </label>
+          <small class="pista">Si la dejás vacía, el resumen muestra los últimos 30 días.</small>
+        </section>
+
+        <!-- 7. Preguntas pendientes (bien visibles, arriba) -->
+        <section class="res-bloque res-preguntas">
+          <h2>Preguntas para el médico</h2>
+          <ol id="res-preguntas"></ol>
+          <p class="res-vacio" id="res-preguntas-vacio">No hay preguntas pendientes.</p>
+        </section>
+
+        <!-- 3. Presión arterial -->
+        <section class="res-bloque">
+          <h2>Presión arterial</h2>
+          <div id="res-presion"></div>
+        </section>
+
+        <!-- 4. Peso -->
+        <section class="res-bloque">
+          <h2>Peso</h2>
+          <div id="res-peso"></div>
+        </section>
+
+        <!-- 5. Síntomas -->
+        <section class="res-bloque">
+          <h2>Síntomas</h2>
+          <div id="res-sintomas"></div>
+        </section>
+
+        <!-- 6. Cómo se sintió -->
+        <section class="res-bloque">
+          <h2>Cómo se sintió</h2>
+          <div id="res-animo"></div>
+        </section>
+
+        <!-- 9. Ya fui al control -->
+        <button type="button" class="boton boton-grande res-ya-fui" id="res-ya-fui">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>
+          Ya fui al control
+        </button>
+        <p class="res-ok" id="res-ok" aria-live="polite"></p>
+
+        <p class="res-pie" id="res-pie"></p>
+      </div>
+    </div>
+
+    <!-- ===================== TUS DATOS (nombre de la paciente y del bebé) ===================== -->
+    <!-- Los nombres se guardan solo en este celular. -->
+    <dialog class="dialogo-nombre" id="dialogo-nombre" aria-labelledby="dialogo-nombre-titulo">
+      <form method="dialog">
+        <h2 id="dialogo-nombre-titulo">Tus datos</h2>
+        <label>
+          <span>Tu nombre</span>
+          <input id="input-nombre-paciente" type="text" maxlength="40" autocomplete="given-name" placeholder="Ej: María">
+        </label>
+        <label>
+          <span>Nombre de tu bebé <small>(si ya lo elegiste)</small></span>
+          <input id="input-nombre-bebe" type="text" maxlength="30" autocomplete="off" placeholder="Ej: Sofía">
+        </label>
+        <p class="nota">Se guarda solo en este celular.</p>
+        <div class="acciones">
+          <button class="guardar" value="guardar">Guardar</button>
+          <button class="cancelar" value="cancelar" formnovalidate>Cancelar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- ===================== FORMULARIO DE REGISTRO (Mi diario) ===================== -->
+    <!-- Hoja que sube desde abajo. Todos los campos son opcionales. -->
+    <div class="hoja-fondo" id="registro-fondo" hidden>
+      <form class="hoja" id="form-registro" novalidate role="dialog" aria-modal="true" aria-labelledby="registro-titulo">
+        <div class="hoja-asa"></div>
+        <h2 id="registro-titulo">Nuevo registro</h2>
+        <p class="ayuda">Completá solo lo que quieras. Todo es opcional.</p>
+
+        <!-- Presión arterial -->
+        <fieldset class="grupo">
+          <legend>Presión arterial</legend>
+          <div class="fila-campos">
+            <label class="campo">
+              <span>Máxima</span>
+              <input id="reg-pas" type="number" inputmode="numeric" min="60" max="260" placeholder="Ej: 110">
+            </label>
+            <label class="campo">
+              <span>Mínima</span>
+              <input id="reg-pad" type="number" inputmode="numeric" min="30" max="160" placeholder="Ej: 70">
+            </label>
+          </div>
+          <small class="pista">Si te dijeron "11 y 7", la máxima es 110 y la mínima 70.</small>
+          <!-- Aparece si la presión está alta -->
+          <div class="alerta-roja" id="reg-alerta-presion" role="alert" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+            <span>Tu presión está alta. Consultá hoy en la guardia o en tu centro de salud.</span>
+          </div>
+          <span class="pendiente-validacion">Valores de alerta pendientes de validación por Obstetricia</span>
+        </fieldset>
+
+        <!-- Peso -->
+        <label class="campo campo-corto">
+          <span>Peso (kg)</span>
+          <input id="reg-peso" type="text" inputmode="decimal" autocomplete="off" placeholder="Ej: 64,5">
+        </label>
+
+        <!-- Síntomas -->
+        <fieldset class="grupo">
+          <legend>Síntomas</legend>
+          <div class="chips" id="reg-sintomas">
+            <button type="button" class="chip" aria-pressed="false" data-valor="nauseas">Náuseas</button>
+            <button type="button" class="chip" aria-pressed="false" data-valor="hinchazon">Hinchazón</button>
+            <button type="button" class="chip" aria-pressed="false" data-valor="dolor-cabeza">Dolor de cabeza</button>
+            <button type="button" class="chip" aria-pressed="false" data-valor="contracciones">Contracciones</button>
+            <button type="button" class="chip" aria-pressed="false" data-valor="acidez">Acidez</button>
+            <button type="button" class="chip" aria-pressed="false" data-valor="cansancio">Cansancio</button>
+            <button type="button" class="chip" aria-pressed="false" data-valor="otro">Otro</button>
+          </div>
+          <input id="reg-otro" class="input-otro" type="text" maxlength="60" autocomplete="off" placeholder="¿Cuál? (opcional)" aria-label="Otro síntoma" hidden>
+          <!-- Aparece si los síntomas (y la presión) pueden ser una señal de alarma -->
+          <div class="aviso-alarma" id="reg-aviso-alarma" role="alert" hidden>
+            <span id="reg-aviso-alarma-texto"></span>
+            <button type="button" class="boton-ir-alarma" id="reg-ir-alarma">
+              Ver signos de alarma
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+            </button>
+          </div>
+        </fieldset>
+
+        <!-- Cómo me siento -->
+        <fieldset class="grupo">
+          <legend>¿Cómo me siento?</legend>
+          <div class="caritas" id="reg-animo" role="radiogroup" aria-label="Cómo me siento">
+            <button type="button" class="carita bien"    role="radio" aria-checked="false" data-valor="bien">Bien</button>
+            <button type="button" class="carita regular" role="radio" aria-checked="false" data-valor="regular">Regular</button>
+            <button type="button" class="carita mal"     role="radio" aria-checked="false" data-valor="mal">Mal</button>
+          </div>
+        </fieldset>
+
+        <!-- Nota libre -->
+        <label class="campo">
+          <span>Nota</span>
+          <textarea id="reg-nota" rows="3" maxlength="500" placeholder="Lo que quieras anotar…"></textarea>
+        </label>
+
+        <p class="error" id="reg-error" role="alert"></p>
+        <button type="submit" class="boton">Guardar registro</button>
+        <button type="button" class="boton-texto" id="reg-cancelar">Cancelar</button>
+      </form>
+    </div>
+
+  </div>
+
+  <script>
+    // =========================================================
+    // 6. LÓGICA DE NAVEGACIÓN
+    // =========================================================
+
+    // Textos del encabezado para cada sección
+    const TEXTOS = {
+      diario:    { titulo: "Mi diario",     subtitulo: "Cómo te sentís hoy" },
+      embarazo:  { titulo: "Mi embarazo",   subtitulo: "Semana a semana, con vos" },
+      controles: { titulo: "Mis controles", subtitulo: "Turnos, estudios y vacunas" },
+      alarma:    { titulo: "Alarma",        subtitulo: "Cuándo consultar de urgencia" }
+    };
+
+    const botones    = document.querySelectorAll(".nav-boton");
+    const secciones  = document.querySelectorAll(".seccion");
+    const encabezado = document.getElementById("encabezado");
+    const titulo     = document.getElementById("titulo");
+    const subtitulo  = document.getElementById("subtitulo");
+
+    // Muestra una sección y oculta las demás
+    function mostrarSeccion(id) {
+      secciones.forEach(s => s.classList.toggle("activa", s.id === id));
+
+      botones.forEach(b => {
+        const esActivo = b.dataset.seccion === id;
+        b.classList.toggle("activo", esActivo);
+        if (esActivo) b.setAttribute("aria-current", "page");
+        else b.removeAttribute("aria-current");
+      });
+
+      encabezado.classList.toggle("alarma", id === "alarma");   // encabezado rojo en Alarma
+      titulo.textContent    = TEXTOS[id].titulo;
+      subtitulo.textContent = TEXTOS[id].subtitulo;
+      window.scrollTo(0, 0);
+      if (id === "embarazo") alMostrarEmbarazo();   // recalcula y muestra el mes actual
+      if (id === "controles") alMostrarControles(); // turnos y trimestre actual al día
+    }
+
+    // Cada botón de la barra llama a mostrarSeccion con su data-seccion
+    botones.forEach(b => {
+      b.addEventListener("click", () => mostrarSeccion(b.dataset.seccion));
+    });
+
+
+    // =========================================================
+    // 7. MI EMBARAZO
+    // =========================================================
+
+    // ---------- 7.1 Datos de cada mes ----------
+    // ⚠ PENDIENTE DE VALIDACIÓN POR OBSTETRICIA: medidas, pesos y textos son aproximados
+    //   (valores habituales de referencia) y deben ser revisados por el equipo antes de usarse con pacientes.
+    // semanas: semanas de embarazo que abarca cada mes (9 meses = 40 semanas).
+    // Hasta el mes 4 el tamaño se mide de la cabeza a la cola; desde el mes 5, de la cabeza a los pies.
+    const MESES = [
+      { mes: 1, semanas: [1, 4],   tamano: "2 mm",    peso: "menos de 1 g", fruta: "lenteja",   comoQue: "una lenteja",
+        texto: "Tu bebé es apenas un grupito de células que encontró su lugar en tu útero. Ya empiezan a formarse su corazón y su sistema nervioso." },
+      { mes: 2, semanas: [5, 8],   tamano: "1,6 cm",  peso: "1 g",          fruta: "uva",       comoQue: "una uva",
+        texto: "¡Su corazoncito ya late! Se forman los bracitos, las piernas, los ojos y las orejas, y de a poco empieza a parecerse a un bebé." },
+      { mes: 3, semanas: [9, 13],  tamano: "7 cm",    peso: "25 g",         fruta: "limon",     comoQue: "un limón",
+        texto: "Ya tiene todos sus órganos y ahora les toca crecer. Mueve las manos y los pies, aunque todavía no lo podés sentir." },
+      { mes: 4, semanas: [14, 17], tamano: "13 cm",   peso: "150 g",        fruta: "palta",     comoQue: "una palta",
+        texto: "Se forman sus huellitas digitales y empieza a escuchar sonidos. Hasta puede chuparse el dedo." },
+      { mes: 5, semanas: [18, 22], tamano: "27 cm",   peso: "430 g",        fruta: "choclo",    comoQue: "un choclo",
+        texto: "Es probable que empieces a sentir sus primeros movimientos, como burbujitas. Le crecen el pelito y las cejas." },
+      { mes: 6, semanas: [23, 27], tamano: "36 cm",   peso: "900 g",        fruta: "berenjena", comoQue: "una berenjena",
+        texto: "Abre y cierra los ojos y reconoce tu voz. Sus pulmones se van preparando para respirar." },
+      { mes: 7, semanas: [28, 31], tamano: "41 cm",   peso: "1,5 kg",       fruta: "anana",     comoQue: "un ananá",
+        texto: "Suma grasita debajo de la piel y se pone más redondito. Duerme y se despierta, y reacciona a la luz y a los sonidos." },
+      { mes: 8, semanas: [32, 35], tamano: "46 cm",   peso: "2,4 kg",       fruta: "melon",     comoQue: "un melón",
+        texto: "Sigue ganando peso y sus pulmones maduran. Tiene menos lugar, así que vas a sentir sus movimientos de otra manera." },
+      { mes: 9, semanas: [36, 40], tamano: "50 cm",   peso: "3,3 kg",       fruta: "sandia",    comoQue: "una sandía",
+        texto: "Ya está casi listo para nacer. Suele acomodarse cabeza abajo y termina de madurar. ¡Falta muy poquito para conocerse!" }
+    ];
+
+    // ---------- 7.2 Guardado (localStorage) ----------
+    // { fum: "2026-06-10" }  (fecha de última menstruación, en formato año-mes-día)
+    const CLAVE_EMBARAZO = "mamasegui.embarazo";
+
+    function leerEmbarazo() {
+      try { return JSON.parse(localStorage.getItem(CLAVE_EMBARAZO)) || null; }
+      catch { return null; }
+    }
+
+    function guardarEmbarazo(datos) {
+      try { localStorage.setItem(CLAVE_EMBARAZO, JSON.stringify(datos)); return true; }
+      catch { return false; }
+    }
+
+    // ---------- 7.3 Cálculos ----------
+    const DIA_MS = 24 * 60 * 60 * 1000;
+    const DURACION_DIAS = 280;   // 40 semanas desde la FUM (regla de Naegele)
+
+    // "2026-06-10" -> número de días (en UTC, para que el cambio de horario no corra un día)
+    function diaNumero(texto) {
+      const [a, m, d] = texto.split("-").map(Number);
+      return Date.UTC(a, m - 1, d) / DIA_MS;
+    }
+
+    function hoyTexto() {
+      const h = new Date();
+      return `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, "0")}-${String(h.getDate()).padStart(2, "0")}`;
+    }
+
+    function textoFechaLarga(numeroDia) {
+      return new Date(numeroDia * DIA_MS).toLocaleDateString("es-AR", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+    }
+
+    const plural = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`;
+
+    function calcularEmbarazo(fum) {
+      const dias = diaNumero(hoyTexto()) - diaNumero(fum);
+      const semanasCompletas = Math.floor(dias / 7);
+      const semanaEnCurso = semanasCompletas + 1;                    // "estás en la semana X"
+      const mes = (MESES.find(m => semanaEnCurso <= m.semanas[1]) || MESES[8]).mes;
+      const trimestre = semanasCompletas < 14 ? 1 : semanasCompletas < 28 ? 2 : 3;
+      return {
+        dias, semanasCompletas, diasExtra: dias % 7, semanaEnCurso, mes, trimestre,
+        fpp: diaNumero(fum) + DURACION_DIAS,
+        faltan: DURACION_DIAS - dias
+      };
+    }
+
+    // ---------- 7.4 Dibujos SVG (estilo ilustración infantil) ----------
+    // Bebé en la panza: una burbuja rosada (el útero) con el bebé acurrucado adentro.
+    // El bebé se dibuja una sola vez, mirando de frente, alrededor del punto 0,0,
+    // y se agranda mes a mes con "scale". Las clases flota / piecito / latido / burbuja
+    // tienen animaciones suaves en el CSS (se apagan si el celular pide "menos movimiento").
+    const PIEL = "#ffd6c2", PIEL_BORDE = "#e8977f", MEJILLA = "#ff9db4", OJOS = "#8b4a3c";
+    const ESCALA_BEBE = [0, 0.5, 0.62, 0.74, 0.86, 0.96, 1.06, 1.17, 1.27];
+
+    // Fondo común: burbuja con degradé, placenta, estrellitas y burbujas que suben
+    function fondoPanza(mes) {
+      return `
+        <defs>
+          <radialGradient id="panza-${mes}" cx="45%" cy="40%" r="65%">
+            <stop offset="0" stop-color="#fff7fa"/>
+            <stop offset="0.75" stop-color="#fde3ec"/>
+            <stop offset="1" stop-color="#f9cfdd"/>
+          </radialGradient>
+        </defs>
+        <circle cx="100" cy="100" r="94" fill="#fbecf1"/>
+        <circle cx="100" cy="100" r="84" fill="url(#panza-${mes})" stroke="#f3b9cc" stroke-width="4"/>
+        <!-- placenta (nubecita) -->
+        <path d="M140 44q4-10 14-8q10-4 15 6q8 4 3 12q-2 8-12 6q-8 6-15 0q-10-2-5-16z" fill="#f6b3c8" stroke="#e997b1" stroke-width="2.5" stroke-linejoin="round"/>
+        <!-- estrellitas -->
+        <path d="M44 70l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="#d8c3f0"/>
+        <path d="M150 150l1.6 4 4 1.6-4 1.6-1.6 4-1.6-4-4-1.6 4-1.6z" fill="#d8c3f0"/>
+        <path d="M58 150l1.2 3 3 1.2-3 1.2-1.2 3-1.2-3-3-1.2 3-1.2z" fill="#f6b3c8"/>
+        <!-- burbujitas que suben -->
+        <circle class="burbuja" cx="62" cy="128" r="4" fill="#fff" opacity="0.8"/>
+        <circle class="burbuja b2" cx="140" cy="120" r="3" fill="#fff" opacity="0.8"/>
+        <circle class="burbuja b3" cx="76" cy="150" r="2.5" fill="#fff" opacity="0.8"/>`;
+    }
+
+    // Carita de frente: ojitos cerrados sonrientes, cachetes, naricita y sonrisa.
+    // (cx, cy) es el centro de la cara.
+    function caritaBebe(cx, cy) {
+      return `
+        <g fill="none" stroke="${OJOS}" stroke-width="2.6" stroke-linecap="round">
+          <path d="M${cx - 15} ${cy - 1}q4.5 4.5 9 0"/>
+          <path d="M${cx + 6} ${cy - 1}q4.5 4.5 9 0"/>
+          <path d="M${cx - 4} ${cy + 9}q4 3.5 8 0"/>
+        </g>
+        <circle cx="${cx - 15}" cy="${cy + 7}" r="5" fill="${MEJILLA}" opacity="0.7"/>
+        <circle cx="${cx + 15}" cy="${cy + 7}" r="5" fill="${MEJILLA}" opacity="0.7"/>
+        <circle cx="${cx}" cy="${cy + 4}" r="1.6" fill="${PIEL_BORDE}"/>`;
+    }
+
+    function svgBebe(mes) {
+      let bebe;
+
+      if (mes === 1) {
+        // Mes 1: una "semillita" chiquita con carita y su corazoncito que empieza a latir
+        bebe = `
+          <circle cx="100" cy="100" r="30" fill="#fff" opacity="0.55"/>
+          <g class="flota">
+            <path d="M88 86q8-14 22-6q12 8 6 24q-6 14-20 12q-14-2-14-14q0-8 6-16z" fill="${PIEL}" stroke="${PIEL_BORDE}" stroke-width="3" stroke-linejoin="round"/>
+            <path d="M93 98q2.5 2.5 5 0M103 98q2.5 2.5 5 0" fill="none" stroke="${OJOS}" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="91" cy="103" r="2.8" fill="${MEJILLA}" opacity="0.7"/>
+            <circle cx="110" cy="103" r="2.8" fill="${MEJILLA}" opacity="0.7"/>
+          </g>
+          <path class="latido" d="M122 82c-2.5-4-9-2-6.5 3l6.5 6 6.5-6c2.5-5-4-7-6.5-3z" fill="#f2668f"/>`;
+      } else {
+        const s = ESCALA_BEBE[mes - 1];
+        const cabezaAbajo = mes === 9;   // en el mes 9 el bebé se acomoda cabeza abajo
+        const giro = cabezaAbajo ? 180 : 0;
+        const grosor = (3 / s).toFixed(2);   // trazo parejo aunque el dibujo cambie de tamaño
+        // Detalles que aparecen a medida que crece
+        const ricito = mes >= 4 ? `<path d="M-8 -46q2-10 10-8q6 2 2 8q-3 3-6 0" fill="none" stroke="#c0785e" stroke-width="${grosor}" stroke-linecap="round"/>` : "";
+        const deditos = mes >= 3 ? `<g fill="${PIEL_BORDE}"><circle cx="-24" cy="36" r="1.4"/><circle cx="-20.5" cy="39" r="1.4"/><circle cx="-16" cy="40.5" r="1.4"/></g>` : "";
+
+        // Punto de la pancita (para el cordón), pasado a coordenadas del dibujo
+        const signo = cabezaAbajo ? -1 : 1;
+        const px = 100 + s * signo * 8, py = 100 + s * signo * 22;
+
+        bebe = `
+          <path d="M${px.toFixed(1)} ${py.toFixed(1)} C${(px + 40).toFixed(1)} ${(py + 20).toFixed(1)} 170 90 154 58" fill="none" stroke="#f0a0b9" stroke-width="${(3 + s * 1.5).toFixed(1)}" stroke-linecap="round"/>
+          <g class="flota">
+            <g transform="translate(100 ${cabezaAbajo ? 104 : 98}) rotate(${giro}) scale(${s})" stroke="${PIEL_BORDE}" stroke-width="${grosor}" stroke-linejoin="round">
+              <!-- orejita (atrás de la cabeza) -->
+              <circle cx="21" cy="-20" r="6.5" fill="${PIEL}"/>
+              <!-- cuerpito redondito -->
+              <ellipse cx="8" cy="16" rx="24" ry="23" fill="${PIEL}"/>
+              <!-- piernita doblada y piecito que patea -->
+              <ellipse cx="2" cy="28" rx="18" ry="11.5" transform="rotate(-12 2 28)" fill="${PIEL}"/>
+              <g class="piecito">
+                <ellipse cx="-19" cy="36" rx="9.5" ry="7" transform="rotate(-20 -19 36)" fill="${PIEL}"/>
+                ${deditos}
+              </g>
+              <!-- cabeza grande -->
+              <circle cx="-4" cy="-20" r="27" fill="${PIEL}"/>
+              <!-- carita y ricito: si está cabeza abajo, se giran para que se vean derechos -->
+              <g transform="rotate(${giro} -4 -20)">${ricito}<g stroke="none">${caritaBebe(-4, -20)}</g></g>
+              <!-- bracito con la manito cerca del cachete -->
+              <ellipse cx="-17" cy="10" rx="6.5" ry="11" transform="rotate(28 -17 10)" fill="${PIEL}"/>
+              <circle cx="-23" cy="2" r="6.5" fill="${PIEL}"/>
+            </g>
+          </g>`;
+      }
+
+      return `
+        <svg viewBox="0 0 200 200" role="img" aria-label="Dibujo del bebé en la panza en el mes ${mes}">
+          ${fondoPanza(mes)}
+          ${bebe}
+        </svg>`;
+    }
+
+    // Carita para las frutas: ojitos, cachetes y sonrisa (cx, cy = centro; t = tamaño)
+    function caritaFruta(cx, cy, t = 1, color = "#5a3a2a") {
+      return `
+        <circle cx="${cx - 5 * t}" cy="${cy}" r="${1.8 * t}" fill="${color}"/>
+        <circle cx="${cx + 5 * t}" cy="${cy}" r="${1.8 * t}" fill="${color}"/>
+        <path d="M${cx - 2.5 * t} ${cy + 3 * t}q${2.5 * t} ${2.5 * t} ${5 * t} 0" fill="none" stroke="${color}" stroke-width="${1.6 * t}" stroke-linecap="round"/>
+        <circle cx="${cx - 8.5 * t}" cy="${cy + 3 * t}" r="${2.2 * t}" fill="#ff8fab" opacity="0.6"/>
+        <circle cx="${cx + 8.5 * t}" cy="${cy + 3 * t}" r="${2.2 * t}" fill="#ff8fab" opacity="0.6"/>`;
+    }
+
+    // Frutas y verduras para comparar el tamaño (viewBox 64×64), con carita
+    function svgFruta(nombre) {
+      let d = "";
+      switch (nombre) {
+        case "lenteja":
+          d = `<ellipse cx="32" cy="36" rx="20" ry="15" fill="#e0a35e" stroke="#b07034" stroke-width="2.5"/>
+               <ellipse cx="25" cy="29" rx="6" ry="3" fill="#f5d2a3"/>${caritaFruta(32, 37, 0.9)}`;
+          break;
+        case "uva":
+          d = `<path d="M32 20q1-7 7-10" fill="none" stroke="#7a5a2a" stroke-width="3" stroke-linecap="round"/>
+               <path d="M37 14q9-6 15 1q-8 5-15-1z" fill="#79b85a" stroke="#4f8a34" stroke-width="1.5"/>
+               <circle cx="32" cy="38" r="19" fill="#9a6cc8" stroke="#6c43a0" stroke-width="2.5"/>
+               <ellipse cx="24" cy="30" rx="4.5" ry="5.5" fill="#c8a8e8"/>${caritaFruta(32, 40, 1, "#3a2050")}`;
+          break;
+        case "limon":
+          d = `<path d="M6 36q2-3 5-4q6-15 21-15q15 0 21 15q3 1 5 4q-2 3-5 4q-6 15-21 15q-15 0-21-15q-3-1-5-4z" fill="#ffe14d" stroke="#d4ae1c" stroke-width="2.5"/>
+               <path d="M34 17q7-9 15-6q-5 9-15 6z" fill="#6aae46" stroke="#4b8a2e" stroke-width="1.5"/>
+               <ellipse cx="22" cy="29" rx="6" ry="3" fill="#fff3a8"/>${caritaFruta(32, 37)}`;
+          break;
+        case "palta":
+          d = `<path d="M32 5c-11 0-13 14-15 22c-5 15 2 32 15 32s20-17 15-32c-2-8-4-22-15-22z" fill="#5a8a33" stroke="#3a6420" stroke-width="2.5"/>
+               <path d="M32 10c-8 0-9 12-11 19c-3 13 1 25 11 25s14-12 11-25c-2-7-3-19-11-19z" fill="#dcec9a"/>
+               <circle cx="32" cy="43" r="8" fill="#a8743f"/><ellipse cx="29.5" cy="40.5" rx="2.5" ry="1.8" fill="#cf9c66"/>
+               ${caritaFruta(32, 27, 0.85, "#3a4a20")}`;
+          break;
+        case "choclo": {
+          let granos = "";
+          for (let f = 0; f < 4; f++) for (let c = 0; c < 3; c++) granos += `<circle cx="${26 + c * 6}" cy="${11 + f * 5}" r="2.4" fill="#f0bf2a"/>`;
+          d = `<rect x="20" y="5" width="24" height="48" rx="12" fill="#ffd84f" stroke="#d6a91c" stroke-width="2.5"/>${granos}
+               ${caritaFruta(32, 34, 0.9)}
+               <path d="M32 61c-16-6-19-26-13-40c2 15 6 28 13 40z" fill="#78bc52" stroke="#4b8a2e" stroke-width="2"/>
+               <path d="M32 61c16-6 19-26 13-40c-2 15-6 28-13 40z" fill="#8acb62" stroke="#4b8a2e" stroke-width="2"/>`;
+          break;
+        }
+        case "berenjena":
+          d = `<path d="M28 17c-13 4-19 23-10 36c9 11 29 9 32-5c3-13-5-26-12-31z" fill="#7c4aa3" stroke="#56307a" stroke-width="2.5"/>
+               <path d="M22 21q9-11 20-4q-4 8-11 8q-5 0-9-4z" fill="#6aae46" stroke="#4b8a2e" stroke-width="1.5"/>
+               <path d="M34 14q1-6 5-9" fill="none" stroke="#4b8a2e" stroke-width="3.5" stroke-linecap="round"/>
+               <ellipse cx="21" cy="36" rx="3" ry="6" fill="#a982cc" transform="rotate(15 21 36)"/>
+               ${caritaFruta(34, 41, 1, "#2e1840")}`;
+          break;
+        case "anana":
+          d = `<path d="M32 23l-6-15 5 5 1-10 3 10 5-7-2 16z" fill="#58a83f" stroke="#3a7a2a" stroke-width="2" stroke-linejoin="round"/>
+               <ellipse cx="32" cy="42" rx="16" ry="19" fill="#f4bd45" stroke="#c28a1e" stroke-width="2.5"/>
+               <path d="M22 30l6 5M36 28l6 5M18 42l5 4M44 42l-5 4M24 54l4-3M40 54l-4-3" stroke="#d29a2a" stroke-width="2" stroke-linecap="round"/>
+               ${caritaFruta(32, 42)}`;
+          break;
+        case "melon":
+          d = `<circle cx="32" cy="36" r="23" fill="#f0df9e" stroke="#bea55a" stroke-width="2.5"/>
+               <path d="M16 22q-6 14 0 28M48 22q6 14 0 28" fill="none" stroke="#d6c07a" stroke-width="2.5" stroke-linecap="round"/>
+               <path d="M32 13q0-6 5-8" fill="none" stroke="#7a5a2a" stroke-width="3" stroke-linecap="round"/>
+               <path d="M36 8q7-4 11 2q-6 3-11-2z" fill="#79b85a"/>
+               ${caritaFruta(32, 37)}`;
+          break;
+        case "sandia":
+          d = `<ellipse cx="32" cy="36" rx="28" ry="22" fill="#57a64a" stroke="#2f6e28" stroke-width="2.5"/>
+               <path d="M14 23q-4 13 0 26M50 23q4 13 0 26M24 16q-3 5-3 9M40 16q3 5 3 9" fill="none" stroke="#3a8034" stroke-width="3" stroke-linecap="round"/>
+               <ellipse cx="20" cy="27" rx="5" ry="3" fill="#a3d68f" transform="rotate(-30 20 27)"/>
+               ${caritaFruta(32, 38, 1.1, "#1f3f1a")}`;
+          break;
+      }
+      return `<svg viewBox="0 0 64 64" aria-hidden="true">${d}</svg>`;
+    }
+
+    // ---------- 7.5 Pantalla ----------
+    const formFum        = document.getElementById("form-fum");
+    const inputFum       = document.getElementById("fum-fecha");
+    const errorFum       = document.getElementById("fum-error");
+    const botonCancelar  = document.getElementById("fum-cancelar");
+    const resumenEmb     = document.getElementById("resumen-embarazo");
+    const carrusel       = document.getElementById("carrusel-meses");
+    const puntos         = document.getElementById("mes-puntos");
+    const botonAnterior  = document.getElementById("mes-anterior");
+    const botonSiguiente = document.getElementById("mes-siguiente");
+
+    let mesActual = null;     // mes de embarazo de hoy (null si no cargó la fecha)
+    let mesVisible = 1;       // mes que se está mirando en el carrusel
+
+    // Arma las 9 tarjetas del carrusel (una vez)
+    function armarCarrusel() {
+      carrusel.innerHTML = "";
+      puntos.innerHTML = "";
+      MESES.forEach(m => {
+        const tarjeta = document.createElement("article");
+        tarjeta.className = "mes-tarjeta";
+        tarjeta.dataset.mes = m.mes;
+        tarjeta.setAttribute("aria-label", `Mes ${m.mes}`);
+        tarjeta.innerHTML = `
+          <div class="dibujo-bebe">${svgBebe(m.mes)}<span class="estas-aca" hidden>Estás acá</span></div>
+          <div class="comparacion">
+            ${svgFruta(m.fruta)}
+            <p><span class="nombre-bebe-texto">Tu bebé</span> tiene más o menos el tamaño de <b>${m.comoQue}</b></p>
+          </div>
+          <div class="medidas">
+            <div><small>Tamaño aprox.</small><b>${m.tamano}</b></div>
+            <div><small>Peso aprox.</small><b>${m.peso}</b></div>
+          </div>
+          <p class="mes-texto">${m.texto}</p>`;
+        carrusel.appendChild(tarjeta);
+        puntos.appendChild(document.createElement("span"));
+      });
+    }
+
+    // Actualiza el título "Mes X", los puntitos y las flechas
+    function actualizarIndicador() {
+      const m = MESES[mesVisible - 1];
+      document.getElementById("mes-nombre").textContent = `Mes ${m.mes}` + (m.mes === mesActual ? " · ¡estás acá!" : "");
+      document.getElementById("mes-semanas").textContent = `Semanas ${m.semanas[0]} a ${m.semanas[1]}`;
+      [...puntos.children].forEach((p, i) => {
+        p.classList.toggle("activo", i + 1 === mesVisible);
+        p.classList.toggle("actual", i + 1 === mesActual);
+      });
+      botonAnterior.disabled = mesVisible === 1;
+      botonSiguiente.disabled = mesVisible === 9;
+    }
+
+    // Lleva el carrusel a un mes (con animación o de golpe)
+    function irAMes(mes, suave = true) {
+      mesVisible = Math.min(9, Math.max(1, mes));
+      carrusel.scrollTo({ left: (mesVisible - 1) * carrusel.clientWidth, behavior: suave ? "smooth" : "auto" });
+      actualizarIndicador();
+    }
+
+    botonAnterior.addEventListener("click", () => irAMes(mesVisible - 1));
+    botonSiguiente.addEventListener("click", () => irAMes(mesVisible + 1));
+
+    // Al deslizar con el dedo, detecta qué mes quedó a la vista
+    let esperaScroll = null;
+    carrusel.addEventListener("scroll", () => {
+      cancelAnimationFrame(esperaScroll);
+      esperaScroll = requestAnimationFrame(() => {
+        if (!carrusel.clientWidth) return;
+        const visible = Math.round(carrusel.scrollLeft / carrusel.clientWidth) + 1;
+        if (visible !== mesVisible) { mesVisible = visible; actualizarIndicador(); }
+      });
+    });
+
+    // Flechas del teclado (computadora)
+    carrusel.addEventListener("keydown", e => {
+      if (e.key === "ArrowLeft")  { e.preventDefault(); irAMes(mesVisible - 1); }
+      if (e.key === "ArrowRight") { e.preventDefault(); irAMes(mesVisible + 1); }
+    });
+
+    // Si cambia el ancho de la pantalla (girar el celular), mantiene el mes
+    window.addEventListener("resize", () => irAMes(mesVisible, false));
+
+    // Muestra el formulario (para cargar o cambiar la fecha)
+    function mostrarFormularioFum(cambiando) {
+      const datos = leerEmbarazo();
+      inputFum.value = datos ? datos.fum : "";
+      inputFum.max = hoyTexto();
+      errorFum.textContent = "";
+      document.getElementById("fum-titulo").textContent = cambiando ? "Cambiar la fecha" : "¿Cuándo fue tu última menstruación?";
+      botonCancelar.hidden = !cambiando;
+      formFum.hidden = false;
+      resumenEmb.hidden = true;
+      if (cambiando) inputFum.focus();
+    }
+
+    // Dibuja el resumen con los datos calculados
+    function renderEmbarazo() {
+      const datos = leerEmbarazo();
+      if (!datos || !datos.fum) {
+        mesActual = null;
+        mostrarFormularioFum(false);
+        return;
+      }
+
+      const e = calcularEmbarazo(datos.fum);
+      mesActual = e.mes;
+      formFum.hidden = true;
+      resumenEmb.hidden = false;
+
+      const semanaMostrada = Math.min(e.semanaEnCurso, 42);
+      document.getElementById("emb-semana").textContent = semanaMostrada;
+      document.getElementById("emb-exacta").textContent = e.dias === 0 ? "Hoy empieza la cuenta"
+        : e.semanasCompletas === 0 ? `Llevás ${plural(e.dias, "día", "días")} de embarazo`
+        : `Estás de ${plural(e.semanasCompletas, "semana", "semanas")}` + (e.diasExtra ? ` y ${plural(e.diasExtra, "día", "días")}` : "");
+
+      const porcentaje = Math.min(100, Math.max(0, e.dias / DURACION_DIAS * 100));
+      document.getElementById("emb-relleno").style.width = porcentaje.toFixed(1) + "%";
+      const barra = document.getElementById("emb-progreso");
+      barra.setAttribute("aria-valuenow", Math.min(semanaMostrada, 40));
+      barra.setAttribute("aria-valuetext", `Semana ${semanaMostrada} de 40`);
+      document.getElementById("emb-progreso-texto").textContent = semanaMostrada > 40
+        ? `Semana ${semanaMostrada} (pasaste las 40)` : `Semana ${semanaMostrada} de 40`;
+
+      const semFaltan = Math.floor(e.faltan / 7), diasFaltan = e.faltan % 7;
+      const faltaN = (n, uno, varios) => `${n === 1 ? "Falta" : "Faltan"} ${plural(n, uno, varios)}`;
+      document.getElementById("emb-faltan").textContent = e.faltan <= 0 ? "¡Llegó la fecha!"
+        : semFaltan === 0 ? faltaN(diasFaltan, "día", "días")
+        : faltaN(semFaltan, "semana", "semanas");
+
+      document.getElementById("emb-mes").textContent = `${e.mes}.º mes`;
+      document.getElementById("emb-trimestre").textContent = `${e.trimestre}.º trimestre`;
+      document.getElementById("emb-fpp").textContent = textoFechaLarga(e.fpp);
+
+      // Nota según el momento (⚠ pendiente de validación por Obstetricia)
+      const nota = document.getElementById("emb-nota");
+      if (e.semanasCompletas >= 41) {
+        nota.textContent = "Ya pasaste la fecha probable de parto. Es importante que consultes con tu equipo de salud para controlarte.";
+      } else if (e.faltan <= 0) {
+        nota.textContent = "¡Llegó la fecha probable de parto! Seguí los controles que te indicaron. Ante cualquier duda, consultá.";
+      } else {
+        nota.textContent = "";
+      }
+      nota.hidden = !nota.textContent;
+    }
+
+    // Marca la tarjeta del mes actual con "Estás acá"
+    function marcarMesActual() {
+      carrusel.querySelectorAll(".mes-tarjeta").forEach(t => {
+        t.querySelector(".estas-aca").hidden = Number(t.dataset.mes) !== mesActual;
+      });
+    }
+
+    // Se llama cada vez que se abre la sección: recalcula (puede haber cambiado el día) y va al mes actual
+    function alMostrarEmbarazo() {
+      renderEmbarazo();
+      marcarMesActual();
+      irAMes(mesActual || 1, false);
+    }
+
+    // Guardar la fecha
+    formFum.addEventListener("submit", evento => {
+      evento.preventDefault();
+      const valor = inputFum.value;
+      if (!valor) { errorFum.textContent = "Elegí la fecha del primer día de tu última menstruación."; return; }
+
+      const dias = diaNumero(hoyTexto()) - diaNumero(valor);
+      if (dias < 0)   { errorFum.textContent = "La fecha no puede ser posterior a hoy."; return; }
+      if (dias > 300) { errorFum.textContent = "La fecha es de hace más de 10 meses. Revisá que esté bien."; return; }
+
+      if (!guardarEmbarazo({ fum: valor })) {
+        errorFum.textContent = "No se pudo guardar en este celular (puede estar en modo privado).";
+        return;
+      }
+      alMostrarEmbarazo();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+
+    document.getElementById("fum-cambiar").addEventListener("click", () => mostrarFormularioFum(true));
+    botonCancelar.addEventListener("click", () => alMostrarEmbarazo());
+
+    // Al volver a la app otro día, actualiza la semana
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden && document.getElementById("embarazo").classList.contains("activa")) {
+        renderEmbarazo(); marcarMesActual(); actualizarIndicador();
+      }
+    });
+
+    armarCarrusel();
+    actualizarIndicador();
+
+
+    // =========================================================
+    // 8. MI DIARIO
+    // =========================================================
+
+    // ---------- 8.1 Valores de alerta ----------
+    // ⚠ PENDIENTE DE VALIDACIÓN POR OBSTETRICIA: umbrales de presión alta en el embarazo.
+    const PRESION_ALTA = { maxima: 140, minima: 90 };   // alerta si máxima ≥ 140 o mínima ≥ 90
+
+    const presionAlta = (pas, pad) => (pas != null && pas >= PRESION_ALTA.maxima) || (pad != null && pad >= PRESION_ALTA.minima);
+
+    const SINTOMAS = {
+      "nauseas": "Náuseas", "hinchazon": "Hinchazón", "dolor-cabeza": "Dolor de cabeza",
+      "contracciones": "Contracciones", "acidez": "Acidez", "cansancio": "Cansancio", "otro": "Otro"
+    };
+    const ANIMOS = { bien: "Bien", regular: "Regular", mal: "Mal" };
+
+    // ---------- 8.2 Guardado (localStorage) ----------
+    // registros: [{ id, fecha: "2026-11-05T14:32:00.000Z", semana: 23 | null, pas, pad, peso,
+    //               sintomas: ["nauseas"], otro: "", animo: "bien" | "regular" | "mal" | null, nota: "" }]
+    // preguntas: [{ id, texto, hecha: false }]
+    const CLAVE_DIARIO = "mamasegui.diario";
+    const CLAVE_PREGUNTAS = "mamasegui.preguntas";
+
+    function leerLista(clave) {
+      try { const v = JSON.parse(localStorage.getItem(clave)); return Array.isArray(v) ? v : []; }
+      catch { return []; }
+    }
+
+    function guardarLista(clave, lista) {
+      try { localStorage.setItem(clave, JSON.stringify(lista)); return true; }
+      catch { alert("No se pudo guardar en este celular (puede estar en modo privado)."); return false; }
+    }
+
+    const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+    // Crea un elemento con clase y texto (el texto de la usuaria siempre va como texto, nunca como HTML)
+    function el(etiqueta, clase, texto) {
+      const e = document.createElement(etiqueta);
+      if (clase) e.className = clase;
+      if (texto != null) e.textContent = texto;
+      return e;
+    }
+
+    // Caritas tiernas (bien / regular / mal)
+    function svgAnimo(tipo) {
+      const colores = { bien: ["#e8f6ef", "#2e9d6a"], regular: ["#fff6e0", "#b7791f"], mal: ["#f1ebf8", "#7d5ba6"] }[tipo];
+      const boca = { bien: "M8 14.5q4 3.5 8 0", regular: "M8.5 15h7", mal: "M8 16q4-3.5 8 0" }[tipo];
+      return `<svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" fill="${colores[0]}" stroke="${colores[1]}" stroke-width="1.8"/>
+        <circle cx="8.5" cy="10" r="1.3" fill="${colores[1]}"/><circle cx="15.5" cy="10" r="1.3" fill="${colores[1]}"/>
+        <circle cx="6.5" cy="13.5" r="1.6" fill="#ff9db4" opacity="0.6"/><circle cx="17.5" cy="13.5" r="1.6" fill="#ff9db4" opacity="0.6"/>
+        <path d="${boca}" fill="none" stroke="${colores[1]}" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>`;
+    }
+
+    const ICONO_BORRAR = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg>`;
+
+    // ---------- 8.3 Formulario ----------
+    const fondoRegistro = document.getElementById("registro-fondo");
+    const formRegistro  = document.getElementById("form-registro");
+    const inputPas      = document.getElementById("reg-pas");
+    const inputPad      = document.getElementById("reg-pad");
+    const inputPeso     = document.getElementById("reg-peso");
+    const inputOtro     = document.getElementById("reg-otro");
+    const inputNota     = document.getElementById("reg-nota");
+    const errorRegistro = document.getElementById("reg-error");
+    const alertaPresion = document.getElementById("reg-alerta-presion");
+    const chipsSintomas = document.querySelectorAll("#reg-sintomas .chip");
+    const botonesAnimo  = document.querySelectorAll("#reg-animo .carita");
+
+    // Dibuja las caritas dentro de los botones
+    botonesAnimo.forEach(b => b.insertAdjacentHTML("afterbegin", svgAnimo(b.dataset.valor)));
+
+    // "12" -> 12 ; "64,5" -> 64.5 ; "" -> null
+    function leerNumero(input) {
+      const texto = input.value.trim().replace(",", ".");
+      if (texto === "") return null;
+      const n = Number(texto);
+      return Number.isFinite(n) ? n : NaN;
+    }
+
+    // ⚠ PENDIENTE DE VALIDACIÓN POR OBSTETRICIA: combinaciones que llevan a la sección "Alarma".
+    // Devuelve el texto del aviso, o "" si no corresponde.
+    function motivoAlarma(pas, pad, sintomas) {
+      const alta = presionAlta(pas, pad);
+      const motivos = [];
+      if (sintomas.includes("contracciones")) motivos.push("Marcaste contracciones: si estás antes de la semana 37 o son seguidas, pueden ser una señal de alarma.");
+      if (alta && sintomas.includes("dolor-cabeza")) motivos.push("Dolor de cabeza con presión alta puede ser una señal de alarma.");
+      if (alta && sintomas.includes("hinchazon")) motivos.push("Hinchazón con presión alta puede ser una señal de alarma.");
+      return motivos.join(" ");
+    }
+
+    const avisoAlarmaForm = document.getElementById("reg-aviso-alarma");
+
+    function revisarPresion() {
+      const pas = leerNumero(inputPas), pad = leerNumero(inputPad);
+      const pasOk = Number.isNaN(pas) ? null : pas, padOk = Number.isNaN(pad) ? null : pad;
+      alertaPresion.hidden = !presionAlta(pasOk, padOk);
+      // Aviso que lleva a "Alarma" según los síntomas marcados
+      const sintomas = [...chipsSintomas].filter(c => c.getAttribute("aria-pressed") === "true").map(c => c.dataset.valor);
+      const motivo = motivoAlarma(pasOk, padOk, sintomas);
+      document.getElementById("reg-aviso-alarma-texto").textContent = motivo;
+      avisoAlarmaForm.hidden = !motivo;
+    }
+
+    // "Ver signos de alarma": cierra el formulario (sin guardar) y abre la sección Alarma
+    document.getElementById("reg-ir-alarma").addEventListener("click", () => {
+      cerrarRegistro();
+      mostrarSeccion("alarma");
+    });
+
+    formRegistro.addEventListener("input", () => { errorRegistro.textContent = ""; });   // borra el error al corregir
+    inputPas.addEventListener("input", revisarPresion);
+    inputPad.addEventListener("input", revisarPresion);
+
+    chipsSintomas.forEach(chip => chip.addEventListener("click", () => {
+      const activo = chip.getAttribute("aria-pressed") !== "true";
+      chip.setAttribute("aria-pressed", activo);
+      if (chip.dataset.valor === "otro") {
+        inputOtro.hidden = !activo;
+        if (activo) inputOtro.focus(); else inputOtro.value = "";
+      }
+      revisarPresion();   // por si la combinación de síntomas es una señal de alarma
+    }));
+
+    // Caritas: tocar elige; tocar la misma de nuevo la desmarca (todo es opcional)
+    botonesAnimo.forEach(b => b.addEventListener("click", () => {
+      const yaElegida = b.getAttribute("aria-checked") === "true";
+      botonesAnimo.forEach(o => o.setAttribute("aria-checked", "false"));
+      if (!yaElegida) b.setAttribute("aria-checked", "true");
+    }));
+
+    function abrirRegistro() {
+      formRegistro.reset();
+      chipsSintomas.forEach(c => c.setAttribute("aria-pressed", "false"));
+      botonesAnimo.forEach(b => b.setAttribute("aria-checked", "false"));
+      inputOtro.hidden = true;
+      alertaPresion.hidden = true;
+      avisoAlarmaForm.hidden = true;
+      errorRegistro.textContent = "";
+      fondoRegistro.hidden = false;
+      document.body.style.overflow = "hidden";   // que no se mueva la pantalla de atrás
+      formRegistro.scrollTop = 0;
+    }
+
+    function cerrarRegistro() {
+      fondoRegistro.hidden = true;
+      document.body.style.overflow = "";
+      document.getElementById("btn-agregar-registro").focus();
+    }
+
+    document.getElementById("btn-agregar-registro").addEventListener("click", abrirRegistro);
+    document.getElementById("reg-cancelar").addEventListener("click", cerrarRegistro);
+    fondoRegistro.addEventListener("click", e => { if (e.target === fondoRegistro) cerrarRegistro(); });
+    document.addEventListener("keydown", e => { if (e.key === "Escape" && !fondoRegistro.hidden) cerrarRegistro(); });
+
+    formRegistro.addEventListener("submit", evento => {
+      evento.preventDefault();
+      errorRegistro.textContent = "";
+      const pas = leerNumero(inputPas), pad = leerNumero(inputPad), peso = leerNumero(inputPeso);
+
+      // La presión va de a dos: si completa una, tiene que completar la otra
+      if ((pas == null) !== (pad == null)) { errorRegistro.textContent = "Para la presión, completá la máxima y la mínima."; return; }
+      if (pas != null && (Number.isNaN(pas) || Number.isNaN(pad) || pas < 60 || pas > 260 || pad < 30 || pad > 160 || pad >= pas)) {
+        errorRegistro.textContent = "Revisá la presión: por ejemplo, máxima 110 y mínima 70."; return;
+      }
+      if (peso != null && (Number.isNaN(peso) || peso < 30 || peso > 250)) { errorRegistro.textContent = "Revisá el peso (en kilos, por ejemplo 64,5)."; return; }
+
+      const sintomas = [...chipsSintomas].filter(c => c.getAttribute("aria-pressed") === "true").map(c => c.dataset.valor);
+      const elegida = [...botonesAnimo].find(b => b.getAttribute("aria-checked") === "true");
+      const nota = inputNota.value.trim();
+
+      if (pas == null && peso == null && !sintomas.length && !elegida && !nota) {
+        errorRegistro.textContent = "Completá al menos un dato para guardar el registro."; return;
+      }
+
+      // Semana de embarazo de hoy (de la sección "Mi embarazo"), si cargó la fecha
+      const embarazo = leerEmbarazo();
+      const semana = embarazo && embarazo.fum ? Math.min(calcularEmbarazo(embarazo.fum).semanaEnCurso, 42) : null;
+
+      const registros = leerLista(CLAVE_DIARIO);
+      registros.push({
+        id: nuevoId(), fecha: new Date().toISOString(), semana,
+        pas, pad, peso: peso == null ? null : Math.round(peso * 10) / 10,
+        sintomas, otro: sintomas.includes("otro") ? inputOtro.value.trim() : "",
+        animo: elegida ? elegida.dataset.valor : null, nota
+      });
+      if (!guardarLista(CLAVE_DIARIO, registros)) return;
+      cerrarRegistro();
+      renderRegistros();
+    });
+
+    // ---------- 8.4 Historial ----------
+    const listaRegistros = document.getElementById("lista-registros");
+
+    function renderRegistros() {
+      const registros = leerLista(CLAVE_DIARIO).sort((a, b) => b.fecha.localeCompare(a.fecha));   // más nuevo primero
+      listaRegistros.innerHTML = "";
+      document.getElementById("diario-vacio").hidden = registros.length > 0;
+      document.getElementById("diario-cantidad").textContent = registros.length ? plural(registros.length, "registro", "registros") : "";
+
+      registros.forEach(r => {
+        const fecha = new Date(r.fecha);
+        const li = el("li", "registro");
+
+        // Cabecera: fecha, hora, semana y botón borrar
+        const cabeza = el("div", "registro-cabeza");
+        const textoFecha = el("div", "registro-fecha");
+        const dia = fecha.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" });
+        textoFecha.append(el("b", null, dia.charAt(0).toUpperCase() + dia.slice(1)));
+        textoFecha.append(el("span", null, fecha.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false }) + " h"));
+        if (r.semana) { textoFecha.append(el("br")); textoFecha.append(el("span", "chip-semana", `Semana ${r.semana}`)); }
+        const borrar = el("button", "boton-borrar");
+        borrar.type = "button";
+        borrar.innerHTML = ICONO_BORRAR;
+        borrar.setAttribute("aria-label", `Borrar el registro del ${dia}`);
+        borrar.addEventListener("click", () => borrarRegistro(r.id));
+        cabeza.append(textoFecha, borrar);
+        li.append(cabeza);
+
+        // Datos: presión, peso, cómo me siento
+        const datos = el("div", "registro-datos");
+        const alta = r.pas != null && presionAlta(r.pas, r.pad);
+        if (r.pas != null) {
+          const d = el("span", "registro-dato" + (alta ? " alta" : ""));
+          d.append(el("small", null, "Presión"), document.createTextNode(`${r.pas}/${r.pad}` + (alta ? " · alta" : "")));
+          datos.append(d);
+        }
+        if (r.peso != null) {
+          const d = el("span", "registro-dato");
+          d.append(el("small", null, "Peso"), document.createTextNode(`${String(r.peso).replace(".", ",")} kg`));
+          datos.append(d);
+        }
+        if (r.animo) {
+          const d = el("span", "registro-dato registro-animo");
+          d.innerHTML = svgAnimo(r.animo);
+          d.append(document.createTextNode(ANIMOS[r.animo]));
+          datos.append(d);
+        }
+        if (datos.children.length) li.append(datos);
+
+        if (alta) {
+          const aviso = el("div", "alerta-roja");
+          aviso.append(el("span", null, "Tu presión está alta. Consultá hoy en la guardia o en tu centro de salud."));
+          li.append(aviso);
+        }
+
+        if (r.sintomas && r.sintomas.length) {
+          const s = el("div", "registro-sintomas");
+          r.sintomas.forEach(k => s.append(el("span", null, k === "otro" && r.otro ? r.otro : SINTOMAS[k] || k)));
+          li.append(s);
+        }
+
+        // Si ese registro tenía una combinación de alarma, se muestra el aviso con el botón a "Alarma"
+        const motivo = motivoAlarma(r.pas, r.pad, r.sintomas || []);
+        if (motivo) {
+          const aviso = el("div", "aviso-alarma");
+          aviso.append(el("span", null, motivo));
+          const ir = el("button", "boton-ir-alarma", "Ver signos de alarma");
+          ir.type = "button";
+          ir.addEventListener("click", () => mostrarSeccion("alarma"));
+          aviso.append(ir);
+          li.append(aviso);
+        }
+
+        if (r.nota) li.append(el("p", "registro-nota", r.nota));
+        listaRegistros.append(li);
+      });
+    }
+
+    function borrarRegistro(id) {
+      if (!confirm("¿Borrar este registro? No se puede deshacer.")) return;
+      guardarLista(CLAVE_DIARIO, leerLista(CLAVE_DIARIO).filter(r => r.id !== id));
+      renderRegistros();
+    }
+
+    // ---------- 8.5 Preguntas para mi médico ----------
+    const listaPreguntas = document.getElementById("lista-preguntas");
+    const inputPregunta  = document.getElementById("pregunta-texto");
+
+    function renderPreguntas() {
+      const preguntas = leerLista(CLAVE_PREGUNTAS);
+      const pendientes = preguntas.filter(p => !p.hecha), hechas = preguntas.filter(p => p.hecha);
+      listaPreguntas.innerHTML = "";
+      document.getElementById("preguntas-cantidad").textContent = pendientes.length ? `${pendientes.length} por preguntar` : "";
+
+      const crear = p => {
+        const li = el("li", "pregunta" + (p.hecha ? " hecha" : ""));
+        const label = el("label");
+        const check = el("input");
+        check.type = "checkbox";
+        check.checked = p.hecha;
+        check.addEventListener("change", () => {
+          guardarLista(CLAVE_PREGUNTAS, leerLista(CLAVE_PREGUNTAS).map(q => q.id === p.id ? { ...q, hecha: check.checked } : q));
+          renderPreguntas();
+        });
+        label.append(check, el("span", null, p.texto));
+        const borrar = el("button", "boton-borrar");
+        borrar.type = "button";
+        borrar.innerHTML = ICONO_BORRAR;
+        borrar.setAttribute("aria-label", `Borrar la pregunta: ${p.texto}`);
+        borrar.addEventListener("click", () => {
+          guardarLista(CLAVE_PREGUNTAS, leerLista(CLAVE_PREGUNTAS).filter(q => q.id !== p.id));
+          renderPreguntas();
+        });
+        li.append(label, borrar);
+        return li;
+      };
+
+      pendientes.forEach(p => listaPreguntas.append(crear(p)));
+      if (hechas.length) {
+        listaPreguntas.append(el("li", "separador-hechas", "Ya preguntadas"));
+        hechas.forEach(p => listaPreguntas.append(crear(p)));
+      }
+    }
+
+    document.getElementById("form-pregunta").addEventListener("submit", evento => {
+      evento.preventDefault();
+      const texto = inputPregunta.value.trim();
+      if (!texto) { inputPregunta.focus(); return; }
+      const preguntas = leerLista(CLAVE_PREGUNTAS);
+      preguntas.push({ id: nuevoId(), texto, hecha: false });
+      if (!guardarLista(CLAVE_PREGUNTAS, preguntas)) return;
+      inputPregunta.value = "";
+      renderPreguntas();
+      inputPregunta.focus();
+    });
+
+    renderRegistros();
+    renderPreguntas();
+
+
+    // =========================================================
+    // 9. NOMBRE DE LA PACIENTE Y DEL BEBÉ
+    // =========================================================
+    // El nombre de la paciente se guarda en "mamasegui.paciente" y el del bebé en "mamasegui.bebe".
+    const CLAVE_PACIENTE = "mamasegui.paciente";
+    const CLAVE_BEBE = "mamasegui.bebe";
+
+    function leerObjeto(clave) {
+      try { const v = JSON.parse(localStorage.getItem(clave)); return v && typeof v === "object" ? v : {}; }
+      catch { return {}; }
+    }
+
+    const nombrePaciente = () => String(leerObjeto(CLAVE_PACIENTE).nombre || "").trim();
+    const nombreBebe     = () => String(leerObjeto(CLAVE_BEBE).nombre || "").trim();
+
+    const dialogoNombre = document.getElementById("dialogo-nombre");
+    const inputNombre   = document.getElementById("input-nombre-paciente");
+    const inputBebe     = document.getElementById("input-nombre-bebe");
+
+    // Muestra los nombres donde se usan
+    function actualizarNombres() {
+      const n = nombrePaciente(), b = nombreBebe();
+      document.getElementById("texto-saludo").textContent = n ? `Hola, ${n}` : "Agregá tu nombre";
+      document.querySelectorAll(".nombre-bebe-texto").forEach(e => { e.textContent = b || "Tu bebé"; });
+    }
+
+    function abrirDialogoNombre() {
+      inputNombre.value = nombrePaciente();
+      inputBebe.value = nombreBebe();
+      if (typeof dialogoNombre.showModal === "function") {
+        dialogoNombre.showModal();
+      } else {
+        // Navegadores muy viejos sin <dialog>: se pide con una ventanita simple
+        const n = prompt("Tu nombre", nombrePaciente());
+        if (n !== null) guardarNombres(n, prompt("Nombre de tu bebé (opcional)", nombreBebe()) ?? nombreBebe());
+      }
+    }
+
+    function guardarNombres(paciente, bebe) {
+      try {
+        const datos = leerObjeto(CLAVE_PACIENTE);
+        datos.nombre = paciente.trim().slice(0, 40);
+        localStorage.setItem(CLAVE_PACIENTE, JSON.stringify(datos));
+        localStorage.setItem(CLAVE_BEBE, JSON.stringify({ nombre: bebe.trim().slice(0, 30) }));
+      } catch {
+        alert("No se pudo guardar en este celular (puede estar en modo privado).");
+      }
+      actualizarNombres();
+    }
+
+    dialogoNombre.addEventListener("close", () => {
+      if (dialogoNombre.returnValue === "guardar") guardarNombres(inputNombre.value, inputBebe.value);
+    });
+    document.getElementById("btn-saludo").addEventListener("click", abrirDialogoNombre);
+
+    // Si se cambia el nombre en otra pestaña con MamaSegui abierta, se actualiza acá
+    window.addEventListener("storage", e => { if (e.key === CLAVE_PACIENTE || e.key === CLAVE_BEBE) actualizarNombres(); });
+
+    actualizarNombres();
+
+
+    // =========================================================
+    // 10. RESUMEN PARA MI CONTROL
+    // =========================================================
+    // { ultimo: "2026-10-20" }  fecha del último control (si no hay, se muestran los últimos 30 días)
+    const CLAVE_CONTROL = "mamasegui.control";
+    const COLOR_MAXIMA = "#b0406e", COLOR_MINIMA = "#5b6fc0", COLOR_ALTA = "#d03a3a";   // validados para daltonismo
+
+    const pantallaResumen = document.getElementById("pantalla-resumen");
+    const inputControl    = document.getElementById("res-ultimo-control");
+
+    // "2026-10-20" -> fecha local a las 0:00
+    function fechaLocal(texto) {
+      const [a, m, d] = texto.split("-").map(Number);
+      return new Date(a, m - 1, d);
+    }
+
+    const ddmm = f => f.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" });
+    const ddmmaaaa = f => f.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
+    const hhmm = f => f.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false });
+    const conComa = n => String(n).replace(".", ",");
+
+    // Gráfico de líneas simple en SVG (sin librerías).
+    // series: [{ nombre, color, puntos: [{ t: fecha, v: valor, alta: bool }] }]
+    // opciones: { paso, umbrales: [valores], unidad }
+    function graficoLineas(series, opciones) {
+      const W = 320, H = 200, IZQ = 38, DER = 14, ARR = 12, ABA = 28;
+      const puntos = series.flatMap(s => s.puntos);
+      let tMin = Math.min(...puntos.map(p => p.t)), tMax = Math.max(...puntos.map(p => p.t));
+      if (tMax - tMin < DIA_MS) { tMin -= DIA_MS / 2; tMax += DIA_MS / 2; }   // un solo día: lo centra
+      const valores = puntos.map(p => p.v).concat(opciones.umbrales || []);
+      const paso = opciones.paso;
+      const vMin = Math.floor((Math.min(...valores) - paso / 2) / paso) * paso;
+      const vMax = Math.ceil((Math.max(...valores) + paso / 2) / paso) * paso;
+      const x = t => IZQ + (t - tMin) / (tMax - tMin) * (W - IZQ - DER);
+      const y = v => ARR + (vMax - v) / (vMax - vMin) * (H - ARR - ABA);
+
+      let s = "";
+      // Grilla suave con los valores a la izquierda (una línea cada 2 pasos si son muchas)
+      const saltoGrilla = (vMax - vMin) / paso > 6 ? paso * 2 : paso;
+      for (let v = vMin; v <= vMax; v += saltoGrilla) {
+        s += `<line x1="${IZQ}" x2="${W - DER}" y1="${y(v)}" y2="${y(v)}" stroke="#eee3eb" stroke-width="1"/>
+              <text x="${IZQ - 6}" y="${y(v) + 4}" text-anchor="end" font-size="12" fill="#6f6577">${conComa(v)}</text>`;
+      }
+      // Líneas de alerta (presión)
+      (opciones.umbrales || []).forEach(v => {
+        s += `<line x1="${IZQ}" x2="${W - DER}" y1="${y(v)}" y2="${y(v)}" stroke="${COLOR_ALTA}" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.7"/>`;
+      });
+      // Fechas: primera y última
+      s += `<text x="${IZQ}" y="${H - 8}" font-size="12" fill="#6f6577">${ddmm(new Date(puntos.reduce((a, p) => Math.min(a, p.t), Infinity)))}</text>`;
+      if (puntos.length > 1) s += `<text x="${W - DER}" y="${H - 8}" text-anchor="end" font-size="12" fill="#6f6577">${ddmm(new Date(puntos.reduce((a, p) => Math.max(a, p.t), 0)))}</text>`;
+      // Series
+      series.forEach(serie => {
+        const ps = [...serie.puntos].sort((a, b) => a.t - b.t);
+        if (ps.length > 1) s += `<polyline points="${ps.map(p => `${x(p.t).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ")}" fill="none" stroke="${serie.color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+        ps.forEach(p => {
+          s += `<circle cx="${x(p.t).toFixed(1)}" cy="${y(p.v).toFixed(1)}" r="${p.alta ? 5.5 : 4.5}" fill="${p.alta ? COLOR_ALTA : serie.color}" stroke="#fff" stroke-width="2"><title>${ddmm(new Date(p.t))}: ${conComa(p.v)} ${opciones.unidad}</title></circle>`;
+        });
+      });
+      return `<svg class="grafico" viewBox="0 0 ${W} ${H}" role="img" aria-label="${opciones.descripcion}">${s}</svg>`;
+    }
+
+    function renderResumen() {
+      // 1. Encabezado
+      const paciente = nombrePaciente(), bebe = nombreBebe();
+      document.getElementById("res-paciente").textContent = paciente || "Paciente (sin nombre cargado)";
+      const filaBebe = document.getElementById("res-bebe");
+      filaBebe.textContent = bebe ? `Bebé: ${bebe}` : "";
+      filaBebe.hidden = !bebe;
+
+      const embarazo = leerEmbarazo();
+      if (embarazo && embarazo.fum) {
+        const e = calcularEmbarazo(embarazo.fum);
+        // Formato clínico: semanas cumplidas + días (ej: "22 sem + 6 d")
+        document.getElementById("res-semana").textContent = `${e.semanasCompletas} sem` + (e.diasExtra ? ` + ${e.diasExtra} d` : "");
+        document.getElementById("res-fpp").textContent = new Date(e.fpp * DIA_MS)
+          .toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
+        document.getElementById("res-sin-fum").hidden = true;
+      } else {
+        document.getElementById("res-semana").textContent = "–";
+        document.getElementById("res-fpp").textContent = "–";
+        document.getElementById("res-sin-fum").hidden = false;
+      }
+
+      // 2. Período
+      const control = leerObjeto(CLAVE_CONTROL);
+      inputControl.max = hoyTexto();
+      inputControl.value = control.ultimo || "";
+      const desde = control.ultimo ? fechaLocal(control.ultimo) : new Date(Date.now() - 30 * DIA_MS);
+      const registros = leerLista(CLAVE_DIARIO)
+        .filter(r => new Date(r.fecha) >= desde)
+        .sort((a, b) => a.fecha.localeCompare(b.fecha));   // del más viejo al más nuevo
+      document.getElementById("res-periodo-texto").textContent =
+        (control.ultimo ? `Desde mi último control (${ddmmaaaa(desde)})` : "Últimos 30 días") +
+        ` · ${plural(registros.length, "registro", "registros")}`;
+
+      // 7. Preguntas pendientes
+      const pendientes = leerLista(CLAVE_PREGUNTAS).filter(p => !p.hecha);
+      const ol = document.getElementById("res-preguntas");
+      ol.innerHTML = "";
+      pendientes.forEach(p => ol.append(el("li", null, p.texto)));
+      document.getElementById("res-preguntas-vacio").hidden = pendientes.length > 0;
+
+      // 3. Presión arterial: gráfico + tabla
+      const cajaPresion = document.getElementById("res-presion");
+      const conPresion = registros.filter(r => r.pas != null);
+      cajaPresion.innerHTML = "";
+      if (!conPresion.length) {
+        cajaPresion.append(el("p", "res-vacio", "Sin registros de presión en este período."));
+      } else {
+        const t = r => new Date(r.fecha).getTime();
+        cajaPresion.innerHTML = graficoLineas([
+          { nombre: "Máxima", color: COLOR_MAXIMA, puntos: conPresion.map(r => ({ t: t(r), v: r.pas, alta: r.pas >= PRESION_ALTA.maxima })) },
+          { nombre: "Mínima", color: COLOR_MINIMA, puntos: conPresion.map(r => ({ t: t(r), v: r.pad, alta: r.pad >= PRESION_ALTA.minima })) }
+        ], { paso: 10, umbrales: [PRESION_ALTA.maxima, PRESION_ALTA.minima], unidad: "mmHg", descripcion: "Evolución de la presión arterial máxima y mínima" }) + `
+          <div class="leyenda">
+            <span><i style="background:${COLOR_MAXIMA}"></i>Máxima</span>
+            <span><i style="background:${COLOR_MINIMA}"></i>Mínima</span>
+            <span><i class="punto-alto"></i>Alta</span>
+            <span><i style="background:repeating-linear-gradient(90deg,${COLOR_ALTA} 0 5px,transparent 5px 9px)"></i>Límite ${PRESION_ALTA.maxima}/${PRESION_ALTA.minima}</span>
+          </div>`;
+        const tabla = el("table", "tabla-presion");
+        tabla.innerHTML = `<thead><tr><th>Fecha</th><th>Sem.</th><th>Máx / Mín</th></tr></thead>`;
+        const cuerpo = el("tbody");
+        conPresion.forEach(r => {
+          const f = new Date(r.fecha);
+          const tr = el("tr", presionAlta(r.pas, r.pad) ? "alta" : "");
+          const td1 = el("td", null, `${ddmm(f)} ${hhmm(f)}`);
+          const td2 = el("td", null, r.semana ? String(r.semana) : "–");
+          const td3 = el("td");
+          td3.append(el("b", null, `${r.pas}/${r.pad}`));
+          tr.append(td1, td2, td3);
+          cuerpo.append(tr);
+        });
+        tabla.append(cuerpo);
+        cajaPresion.append(tabla);
+      }
+
+      // 4. Peso: primer y último valor + gráfico
+      const cajaPeso = document.getElementById("res-peso");
+      const conPeso = registros.filter(r => r.peso != null);
+      cajaPeso.innerHTML = "";
+      if (!conPeso.length) {
+        cajaPeso.append(el("p", "res-vacio", "Sin registros de peso en este período."));
+      } else {
+        const primero = conPeso[0], ultimo = conPeso[conPeso.length - 1];
+        const extremos = el("div", "extremos");
+        [["Primero", primero], ["Último", ultimo]].forEach(([titulo, r]) => {
+          const d = el("div");
+          d.append(el("small", null, `${titulo} · ${ddmm(new Date(r.fecha))}`), el("b", null, `${conComa(r.peso)} kg`));
+          extremos.append(d);
+        });
+        cajaPeso.append(extremos);
+        if (conPeso.length > 1) {
+          const pesos = conPeso.map(r => r.peso), rango = Math.max(...pesos) - Math.min(...pesos);
+          cajaPeso.insertAdjacentHTML("beforeend", graficoLineas([
+            { nombre: "Peso", color: COLOR_MAXIMA, puntos: conPeso.map(r => ({ t: new Date(r.fecha).getTime(), v: r.peso })) }
+          ], { paso: rango <= 4 ? 1 : rango <= 10 ? 2 : 5, unidad: "kg", descripcion: "Evolución del peso" }));
+        }
+      }
+
+      // 5. Síntomas: cuántas veces apareció cada uno
+      const cajaSintomas = document.getElementById("res-sintomas");
+      const cuenta = new Map();
+      registros.forEach(r => (r.sintomas || []).forEach(k => {
+        const nombre = k === "otro" && r.otro ? `Otro: ${r.otro}` : SINTOMAS[k] || k;
+        cuenta.set(nombre, (cuenta.get(nombre) || 0) + 1);
+      }));
+      cajaSintomas.innerHTML = "";
+      if (!cuenta.size) {
+        cajaSintomas.append(el("p", "res-vacio", "No anotó síntomas en este período."));
+      } else {
+        const maximo = Math.max(...cuenta.values());
+        const ul = el("ul", "barras");
+        [...cuenta.entries()].sort((a, b) => b[1] - a[1]).forEach(([nombre, n]) => {
+          const li = el("li", "barra-fila");
+          const pista = el("div", "barra-pista");
+          const relleno = el("i");
+          relleno.style.width = (n / maximo * 100) + "%";
+          pista.append(relleno);
+          li.append(el("span", null, nombre), el("b", null, plural(n, "vez", "veces")), pista);
+          ul.append(li);
+        });
+        cajaSintomas.append(ul);
+      }
+
+      // 6. Cómo se sintió
+      const cajaAnimo = document.getElementById("res-animo");
+      const animos = { bien: 0, regular: 0, mal: 0 };
+      registros.forEach(r => { if (r.animo in animos) animos[r.animo]++; });
+      if (!animos.bien && !animos.regular && !animos.mal) {
+        cajaAnimo.innerHTML = "";
+        cajaAnimo.append(el("p", "res-vacio", "No marcó cómo se sintió en este período."));
+      } else {
+        cajaAnimo.innerHTML = `<div class="animo-resumen">${Object.keys(animos).map(k =>
+          `<div>${svgAnimo(k)}<b>${animos[k]}</b><span>${ANIMOS[k]}</span></div>`).join("")}</div>`;
+      }
+
+      document.getElementById("res-pie").textContent =
+        `Datos anotados por la paciente en MamaSegui · ${ddmmaaaa(new Date())} ${hhmm(new Date())} h`;
+    }
+
+    function abrirResumen() {
+      document.getElementById("res-ok").textContent = "";
+      renderResumen();
+      pantallaResumen.hidden = false;
+      pantallaResumen.scrollTop = 0;
+      document.body.style.overflow = "hidden";
+      document.getElementById("resumen-volver").focus();
+    }
+
+    function cerrarResumen() {
+      pantallaResumen.hidden = true;
+      document.body.style.overflow = "";
+      document.getElementById("btn-resumen").focus();
+    }
+
+    document.getElementById("btn-resumen").addEventListener("click", abrirResumen);
+    document.getElementById("resumen-volver").addEventListener("click", cerrarResumen);
+    document.addEventListener("keydown", e => { if (e.key === "Escape" && !pantallaResumen.hidden && !dialogoNombre.open) cerrarResumen(); });
+
+    function guardarControl(fecha) {
+      try { localStorage.setItem(CLAVE_CONTROL, JSON.stringify(fecha ? { ultimo: fecha } : {})); return true; }
+      catch { alert("No se pudo guardar en este celular (puede estar en modo privado)."); return false; }
+    }
+
+    // Cambiar a mano la fecha del último control
+    inputControl.addEventListener("change", () => {
+      const v = inputControl.value;
+      if (v && v > hoyTexto()) { inputControl.value = leerObjeto(CLAVE_CONTROL).ultimo || ""; return; }   // no puede ser futura
+      if (guardarControl(v)) renderResumen();
+    });
+
+    // "Ya fui al control": guarda hoy como último control
+    document.getElementById("res-ya-fui").addEventListener("click", () => {
+      if (!confirm("¿Guardar hoy como la fecha de tu último control? El resumen va a empezar de nuevo desde hoy.")) return;
+      if (!guardarControl(hoyTexto())) return;
+      renderResumen();
+      document.getElementById("res-ok").textContent = "¡Listo! Guardamos hoy como tu último control.";
+    });
+
+
+    // =========================================================
+    // 11. MIS CONTROLES
+    // =========================================================
+
+    // ---------- 11.1 Mis turnos ----------
+    // turnos: [{ id, fecha: "2026-11-12", hora: "09:00", tipo: "control", lugar: "" }]
+    const CLAVE_TURNOS = "mamasegui.turnos";
+    const TIPOS_TURNO = { control: "Control obstétrico", ecografia: "Ecografía", laboratorio: "Laboratorio", vacuna: "Vacuna", otro: "Otro" };
+
+    const fechaHoraTurno = t => { const [a, m, d] = t.fecha.split("-").map(Number); const [h, mi] = t.hora.split(":").map(Number); return new Date(a, m - 1, d, h, mi); };
+    const textoHora = f => f.getMinutes() ? `${f.getHours()}:${String(f.getMinutes()).padStart(2, "0")} hs` : `${f.getHours()} hs`;
+    const inicioDia = f => new Date(f.getFullYear(), f.getMonth(), f.getDate());
+    const diasHasta = f => Math.round((inicioDia(f) - inicioDia(new Date())) / DIA_MS);
+
+    // "martes 12" (y el mes si no es el mes actual)
+    function textoDia(f) {
+      const hoy = new Date();
+      const opciones = { weekday: "long", day: "numeric" };
+      if (f.getMonth() !== hoy.getMonth() || f.getFullYear() !== hoy.getFullYear()) opciones.month = "long";
+      return f.toLocaleDateString("es-AR", opciones).replace(",", "");
+    }
+
+    // "hoy" / "mañana" / "el martes 12"
+    const cuandoTurno = f => { const d = diasHasta(f); return d === 0 ? "hoy" : d === 1 ? "mañana" : `el ${textoDia(f)}`; };
+
+    function turnosOrdenados() {
+      const ahora = new Date();
+      const todos = leerLista(CLAVE_TURNOS).map(t => ({ ...t, cuando: fechaHoraTurno(t) })).sort((a, b) => a.cuando - b.cuando);
+      return { proximos: todos.filter(t => t.cuando >= ahora), pasados: todos.filter(t => t.cuando < ahora).reverse() };
+    }
+
+    // Aviso arriba de "Mi diario": "Tu próximo control es el martes 12 a las 9 hs"
+    function renderAvisoTurno() {
+      const aviso = document.getElementById("aviso-turno");
+      const t = turnosOrdenados().proximos[0];
+      aviso.hidden = !t;
+      if (!t) return;
+      document.getElementById("aviso-turno-titulo").textContent =
+        `Tu próximo ${t.tipo === "control" ? "control" : "turno"} es ${cuandoTurno(t.cuando)} a las ${textoHora(t.cuando)}`;
+      document.getElementById("aviso-turno-detalle").textContent = TIPOS_TURNO[t.tipo] + (t.lugar ? ` · ${t.lugar}` : "");
+    }
+
+    document.getElementById("aviso-turno").addEventListener("click", () => mostrarSeccion("controles"));
+
+    function crearItemTurno(t) {
+      const li = el("li", "turno");
+      const caja = el("div", "turno-fecha");
+      caja.append(el("b", null, String(t.cuando.getDate())),
+                  el("small", null, t.cuando.toLocaleDateString("es-AR", { month: "short" }).replace(".", "")));
+      const texto = el("div", "turno-texto");
+      texto.append(el("b", null, TIPOS_TURNO[t.tipo]),
+                   el("span", null, `${t.cuando.toLocaleDateString("es-AR", { weekday: "long" })} · ${textoHora(t.cuando)}` + (t.lugar ? ` · ${t.lugar}` : "")));
+      const borrar = el("button", "boton-borrar");
+      borrar.type = "button";
+      borrar.innerHTML = ICONO_BORRAR;
+      borrar.setAttribute("aria-label", `Borrar el turno de ${TIPOS_TURNO[t.tipo]} del ${textoDia(t.cuando)}`);
+      borrar.addEventListener("click", () => borrarTurno(t.id));
+      li.append(caja, texto, borrar);
+      return li;
+    }
+
+    function renderTurnos() {
+      const { proximos, pasados } = turnosOrdenados();
+      const tarjeta = document.getElementById("proximo-turno");
+      document.getElementById("turnos-vacio").hidden = proximos.length > 0;
+      document.getElementById("turnos-cantidad").textContent = proximos.length ? plural(proximos.length, "próximo", "próximos") : "";
+
+      // Próximo turno destacado
+      tarjeta.hidden = !proximos.length;
+      tarjeta.innerHTML = "";
+      if (proximos.length) {
+        const t = proximos[0], d = diasHasta(t.cuando);
+        const dia = textoDia(t.cuando);
+        tarjeta.append(el("small", null, "Tu próximo turno"),
+                       el("b", null, `${dia.charAt(0).toUpperCase() + dia.slice(1)} · ${textoHora(t.cuando)}`),
+                       el("p", null, TIPOS_TURNO[t.tipo] + (t.lugar ? ` · ${t.lugar}` : "")),
+                       el("span", "falta", d === 0 ? "¡Es hoy!" : d === 1 ? "Es mañana" : `Faltan ${d} días`));
+      }
+
+      // Lista: los que siguen (el primero ya está destacado arriba, pero también se puede borrar desde la lista)
+      const lista = document.getElementById("lista-turnos");
+      lista.innerHTML = "";
+      proximos.forEach(t => lista.append(crearItemTurno(t)));
+
+      const cajaPasados = document.getElementById("turnos-pasados");
+      cajaPasados.hidden = !pasados.length;
+      document.getElementById("turnos-pasados-titulo").textContent = `Turnos anteriores (${pasados.length})`;
+      const listaPasados = document.getElementById("lista-turnos-pasados");
+      listaPasados.innerHTML = "";
+      pasados.forEach(t => listaPasados.append(crearItemTurno(t)));
+
+      renderAvisoTurno();
+    }
+
+    function borrarTurno(id) {
+      if (!confirm("¿Borrar este turno?")) return;
+      guardarLista(CLAVE_TURNOS, leerLista(CLAVE_TURNOS).filter(t => t.id !== id));
+      renderTurnos();
+    }
+
+    // Formulario de turno
+    const fondoTurno  = document.getElementById("turno-fondo");
+    const formTurno   = document.getElementById("form-turno");
+    const errorTurno  = document.getElementById("turno-error");
+    const chipsTipo   = document.querySelectorAll("#turno-tipo .chip");
+
+    chipsTipo.forEach(c => c.addEventListener("click", () => {
+      chipsTipo.forEach(o => o.setAttribute("aria-checked", String(o === c)));
+    }));
+
+    function abrirTurno() {
+      formTurno.reset();
+      chipsTipo.forEach(c => c.setAttribute("aria-checked", String(c.dataset.valor === "control")));
+      document.getElementById("turno-fecha").min = hoyTexto();
+      errorTurno.textContent = "";
+      fondoTurno.hidden = false;
+      document.body.style.overflow = "hidden";
+    }
+
+    function cerrarTurno() {
+      fondoTurno.hidden = true;
+      document.body.style.overflow = "";
+      document.getElementById("btn-agregar-turno").focus();
+    }
+
+    document.getElementById("btn-agregar-turno").addEventListener("click", abrirTurno);
+    document.getElementById("turno-cancelar").addEventListener("click", cerrarTurno);
+    fondoTurno.addEventListener("click", e => { if (e.target === fondoTurno) cerrarTurno(); });
+    document.addEventListener("keydown", e => { if (e.key === "Escape" && !fondoTurno.hidden) cerrarTurno(); });
+    formTurno.addEventListener("input", () => { errorTurno.textContent = ""; });
+
+    formTurno.addEventListener("submit", evento => {
+      evento.preventDefault();
+      const fecha = document.getElementById("turno-fecha").value;
+      const hora = document.getElementById("turno-hora").value;
+      if (!fecha || !hora) { errorTurno.textContent = "Completá la fecha y la hora del turno."; return; }
+      const turno = {
+        id: nuevoId(), fecha, hora,
+        tipo: ([...chipsTipo].find(c => c.getAttribute("aria-checked") === "true") || chipsTipo[0]).dataset.valor,
+        lugar: document.getElementById("turno-lugar").value.trim()
+      };
+      if (fechaHoraTurno(turno) < new Date()) { errorTurno.textContent = "Ese día y horario ya pasaron. Revisá la fecha."; return; }
+      const turnos = leerLista(CLAVE_TURNOS);
+      turnos.push(turno);
+      if (!guardarLista(CLAVE_TURNOS, turnos)) return;
+      cerrarTurno();
+      renderTurnos();
+    });
+
+    // ---------- 11.2 Mi checklist del embarazo ----------
+    // ⚠ PENDIENTE DE VALIDACIÓN POR OBSTETRICIA: contenido, momentos y textos.
+    // Fuentes de referencia:
+    //   [MSAL] Ministerio de Salud de la Nación (Argentina): "Recomendaciones para la práctica del control
+    //          preconcepcional, prenatal y puerperal" (Dirección Nacional de Maternidad e Infancia, 2013).
+    //   [CNV]  Calendario Nacional de Vacunación de Argentina, vacunas para personas gestantes.
+    //   [LEY]  Ley 25.543: el test de VIH debe ofrecerse a toda embarazada (con su consentimiento).
+    // Trimestres como en "Mi embarazo": 1.º hasta la semana 13, 2.º de la 14 a la 27, 3.º desde la 28.
+    const CHECKLIST = [
+      // ----- 1.er trimestre -----
+      { id: "t1-primer-control", trimestre: 1, tipo: "control", nombre: "Primer control del embarazo", cuando: "Lo antes posible, idealmente antes de la semana 13",
+        paraQue: "Confirmar el embarazo, calcular la fecha de parto y organizar tus controles." },                          // [MSAL]
+      { id: "t1-grupo-rh", trimestre: 1, tipo: "estudio", nombre: "Grupo sanguíneo y factor Rh", cuando: "En el primer control",
+        paraQue: "Saber si sos Rh negativo, para prevenir problemas en la sangre del bebé." },                               // [MSAL]
+      { id: "t1-hemograma", trimestre: 1, tipo: "estudio", nombre: "Hemograma", cuando: "En el primer control",
+        paraQue: "Ver si tenés anemia." },                                                                                    // [MSAL]
+      { id: "t1-glucemia", trimestre: 1, tipo: "estudio", nombre: "Glucemia en ayunas", cuando: "En el primer control",
+        paraQue: "Ver si tenés el azúcar alto en sangre." },                                                                  // [MSAL]
+      { id: "t1-orina", trimestre: 1, tipo: "estudio", nombre: "Orina completa y urocultivo", cuando: "En el primer control",
+        paraQue: "Encontrar infecciones urinarias, aunque no tengas molestias." },                                           // [MSAL]
+      { id: "t1-vdrl", trimestre: 1, tipo: "estudio", nombre: "VDRL (sífilis)", cuando: "En el primer control",
+        paraQue: "Detectar sífilis: se cura con tratamiento y así no pasa al bebé." },                                       // [MSAL]
+      { id: "t1-vih", trimestre: 1, tipo: "estudio", nombre: "Test de VIH", cuando: "En el primer control (te lo tienen que ofrecer)",
+        paraQue: "Si da positivo, con tratamiento casi siempre se evita que pase al bebé." },                                 // [MSAL] [LEY]
+      { id: "t1-hepatitis-b", trimestre: 1, tipo: "estudio", nombre: "Hepatitis B", cuando: "En el primer control",
+        paraQue: "Saber si tenés hepatitis B, para proteger al bebé cuando nace." },                                          // [MSAL]
+      { id: "t1-chagas", trimestre: 1, tipo: "estudio", nombre: "Chagas", cuando: "En el primer control",
+        paraQue: "Detectar Chagas, que puede pasar al bebé y tiene tratamiento." },                                          // [MSAL]
+      { id: "t1-toxo", trimestre: 1, tipo: "estudio", nombre: "Toxoplasmosis", cuando: "En el primer control",
+        paraQue: "Saber si ya la tuviste o si tenés que cuidarte para no contagiarte." },                                    // [MSAL]
+      { id: "t1-ecografia", trimestre: 1, tipo: "estudio", nombre: "Ecografía del primer trimestre", cuando: "Entre las semanas 11 y 14 (o cuando te la indiquen)",
+        paraQue: "Confirmar de cuántas semanas estás y ver cómo viene el bebé." },                                           // [MSAL]
+      { id: "t1-pap", trimestre: 1, tipo: "estudio", nombre: "PAP (si no lo tenés al día)", cuando: "En los primeros controles",
+        paraQue: "Prevenir el cáncer de cuello de útero." },                                                                  // [MSAL]
+      { id: "t1-odontologo", trimestre: 1, tipo: "control", nombre: "Control con el odontólogo", cuando: "En cualquier momento, mejor al principio",
+        paraQue: "En el embarazo las encías se inflaman más; cuidar la boca también te cuida a vos y al bebé." },              // [MSAL]
+      { id: "t1-antigripal", trimestre: 1, tipo: "vacuna", nombre: "Vacuna antigripal", cuando: "En cualquier trimestre, durante la campaña de invierno",
+        paraQue: "Te protege de la gripe y también protege al bebé en sus primeros meses." },                                // [CNV]
+      { id: "t1-hepatitis-b-vacuna", trimestre: 1, tipo: "vacuna", nombre: "Vacuna de hepatitis B (si no tenés las 3 dosis)", cuando: "Si tu esquema está incompleto",
+        paraQue: "Te protege de la hepatitis B." },                                                                           // [CNV]
+
+      // ----- 2.º trimestre -----
+      { id: "t2-controles", trimestre: 2, tipo: "control", nombre: "Controles mensuales", cuando: "Una vez por mes",
+        paraQue: "Controlar tu presión, tu peso y el crecimiento del bebé." },                                                // [MSAL]
+      { id: "t2-eco-morfologica", trimestre: 2, tipo: "estudio", nombre: "Ecografía morfológica", cuando: "Entre las semanas 20 y 24",
+        paraQue: "Revisar con detalle cómo se están formando los órganos del bebé." },                                       // [MSAL]
+      { id: "t2-ptog", trimestre: 2, tipo: "estudio", nombre: "Prueba de tolerancia a la glucosa (PTOG)", cuando: "Entre las semanas 24 y 28",
+        paraQue: "Detectar la diabetes que puede aparecer en el embarazo." },                                                // [MSAL]
+      { id: "t2-repetir", trimestre: 2, tipo: "estudio", nombre: "Repetir VDRL y toxoplasmosis (si te dio negativa)", cuando: "En el segundo trimestre",
+        paraQue: "Ver que no te hayas contagiado durante el embarazo." },                                                    // [MSAL]
+      { id: "t2-coombs", trimestre: 2, tipo: "estudio", nombre: "Coombs indirecta (si sos Rh negativo)", cuando: "Entre las semanas 24 y 28",
+        paraQue: "Ver si tu cuerpo hizo defensas contra la sangre del bebé." },                                              // [MSAL]
+      { id: "t2-dtpa", trimestre: 2, tipo: "vacuna", nombre: "Vacuna triple bacteriana acelular (dTpa)", cuando: "Desde la semana 20, en cada embarazo",
+        paraQue: "Protege al bebé contra la tos convulsa en sus primeros meses." },                                          // [CNV]
+
+      // ----- 3.er trimestre -----
+      { id: "t3-controles", trimestre: 3, tipo: "control", nombre: "Controles más seguidos", cuando: "Cada 2 o 3 semanas, y cada semana desde la 36",
+        paraQue: "Seguir de cerca tu presión y cómo está el bebé hasta el parto." },                                          // [MSAL]
+      { id: "t3-laboratorio", trimestre: 3, tipo: "estudio", nombre: "Análisis del tercer trimestre", cuando: "En el tercer trimestre",
+        paraQue: "Hemograma, VDRL, VIH, hepatitis B y toxoplasmosis: revisar anemia e infecciones antes del parto." },        // [MSAL]
+      { id: "t3-anti-d", trimestre: 3, tipo: "tratamiento", nombre: "Gammaglobulina anti-D (si sos Rh negativo)", cuando: "Alrededor de la semana 28, si te la indican",
+        paraQue: "Evita que tu cuerpo haga defensas contra la sangre del bebé." },                                            // [MSAL]
+      { id: "t3-vsr", trimestre: 3, tipo: "vacuna", nombre: "Vacuna contra el virus sincicial respiratorio (VSR)", cuando: "Entre las semanas 32 y 36, en temporada de otoño e invierno",
+        paraQue: "Protege al bebé de la bronquiolitis en sus primeros meses." },                                             // [CNV]
+      { id: "t3-estreptococo", trimestre: 3, tipo: "estudio", nombre: "Hisopado para estreptococo B", cuando: "Entre las semanas 35 y 37",
+        paraQue: "Si tenés esta bacteria, te dan antibiótico en el parto para proteger al bebé." },                          // [MSAL]
+      { id: "t3-ecografia", trimestre: 3, tipo: "estudio", nombre: "Ecografía del tercer trimestre (si te la indican)", cuando: "Según lo que indique tu médico",
+        paraQue: "Ver el crecimiento y la posición del bebé." },                                                             // [MSAL]
+      { id: "t3-curso", trimestre: 3, tipo: "control", nombre: "Curso de preparación para la maternidad", cuando: "Desde el tercer trimestre (podés empezar antes)",
+        paraQue: "Conocer cómo es el parto, la lactancia y los primeros cuidados del bebé." }                                 // [MSAL]
+    ];
+
+    const TIPOS_ITEM = { control: "Control", estudio: "Estudio", vacuna: "Vacuna", tratamiento: "Tratamiento", propio: "Indicado por tu médico" };
+
+    // { hechos: { "t1-hemograma": "2026-08-10" }, propios: [{ id, nombre, paraQue, trimestre }] }
+    const CLAVE_CHECKLIST = "mamasegui.checklist";
+
+    function leerChecklist() {
+      const d = leerObjeto(CLAVE_CHECKLIST);
+      return { hechos: d.hechos && typeof d.hechos === "object" ? d.hechos : {}, propios: Array.isArray(d.propios) ? d.propios : [] };
+    }
+
+    function guardarChecklist(datos) {
+      try { localStorage.setItem(CLAVE_CHECKLIST, JSON.stringify(datos)); return true; }
+      catch { alert("No se pudo guardar en este celular (puede estar en modo privado)."); return false; }
+    }
+
+    const gruposAbiertos = new Set();   // qué trimestres abrió la usuaria (se mantiene al redibujar)
+    let gruposIniciados = false;
+
+    function trimestreActual() {
+      const e = leerEmbarazo();
+      return e && e.fum ? calcularEmbarazo(e.fum).trimestre : null;
+    }
+
+    function crearItemChecklist(item, datos) {
+      const hecho = item.id in datos.hechos;
+      const li = el("li", "item" + (hecho ? " hecho" : ""));
+      const idCheck = "chk-" + item.id;
+
+      const check = el("input");
+      check.type = "checkbox";
+      check.id = idCheck;
+      check.checked = hecho;
+      check.addEventListener("change", () => {
+        const d = leerChecklist();
+        if (check.checked) d.hechos[item.id] = hoyTexto(); else delete d.hechos[item.id];
+        if (guardarChecklist(d)) renderChecklist();
+      });
+
+      const cuerpo = el("div", "item-cuerpo");
+      const nombre = el("label", "item-nombre", item.nombre);
+      nombre.htmlFor = idCheck;
+      const etiquetas = el("div", "item-etiquetas");
+      etiquetas.append(el("span", "tipo-" + item.tipo, TIPOS_ITEM[item.tipo]));
+      if (item.cuando) etiquetas.append(el("span", null, item.cuando));
+      cuerpo.append(nombre, etiquetas);
+
+      if (item.paraQue) {
+        const p = el("p", "item-para-que");
+        p.append(el("b", null, "¿Para qué sirve? "), document.createTextNode(item.paraQue));
+        cuerpo.append(p);
+      }
+
+      // Fecha en que se hizo (aparece al tildar; se puede corregir)
+      if (hecho) {
+        const fila = el("label", "item-fecha");
+        const input = el("input");
+        input.type = "date";
+        input.max = hoyTexto();
+        input.value = datos.hechos[item.id] || "";
+        input.setAttribute("aria-label", `Fecha en que se hizo: ${item.nombre}`);
+        input.addEventListener("change", () => {
+          const d = leerChecklist();
+          d.hechos[item.id] = input.value && input.value <= hoyTexto() ? input.value : "";
+          guardarChecklist(d);
+        });
+        fila.append(document.createTextNode("Hecho el"), input);
+        cuerpo.append(fila);
+      }
+
+      li.append(check, cuerpo);
+
+      if (item.tipo === "propio") {
+        const borrar = el("button", "boton-borrar");
+        borrar.type = "button";
+        borrar.innerHTML = ICONO_BORRAR;
+        borrar.setAttribute("aria-label", `Borrar del checklist: ${item.nombre}`);
+        borrar.addEventListener("click", () => {
+          if (!confirm(`¿Borrar "${item.nombre}" del checklist?`)) return;
+          const d = leerChecklist();
+          d.propios = d.propios.filter(p => p.id !== item.id);
+          delete d.hechos[item.id];
+          if (guardarChecklist(d)) renderChecklist();
+        });
+        li.append(borrar);
+      }
+      return li;
+    }
+
+    function renderChecklist() {
+      const datos = leerChecklist();
+      const actual = trimestreActual();
+      const todos = CHECKLIST.concat(datos.propios.map(p => ({ ...p, tipo: "propio", cuando: "" })));
+
+      if (!gruposIniciados) { gruposAbiertos.add(actual || 1); gruposIniciados = true; }
+
+      const hechos = todos.filter(i => i.id in datos.hechos).length;
+      document.getElementById("checklist-progreso").textContent = `${hechos} de ${todos.length} hechos`;
+
+      const aviso = document.getElementById("trimestre-actual");
+      aviso.hidden = false;
+      aviso.textContent = actual
+        ? `Estás en el ${actual}.º trimestre: te marcamos lo que corresponde ahora.`
+        : `Cargá la fecha de tu última menstruación en "Mi embarazo" y te marcamos lo que te toca ahora.`;
+
+      const contenedor = document.getElementById("checklist-grupos");
+      contenedor.innerHTML = "";
+      [1, 2, 3].forEach(n => {
+        const items = todos.filter(i => Number(i.trimestre) === n);
+        const grupo = el("details", "grupo-trimestre" + (n === actual ? " actual" : ""));
+        grupo.open = gruposAbiertos.has(n);
+        grupo.addEventListener("toggle", () => { if (grupo.open) gruposAbiertos.add(n); else gruposAbiertos.delete(n); });
+
+        const resumen = el("summary");
+        resumen.append(el("b", null, `${n}.º trimestre`));
+        resumen.append(el("span", null, `${items.filter(i => i.id in datos.hechos).length}/${items.length}`));
+        if (n === actual) resumen.append(el("span", "marca-actual", "Ahora"));
+        grupo.append(resumen);
+
+        const lista = el("ul", "items");
+        items.forEach(i => lista.append(crearItemChecklist(i, datos)));
+        grupo.append(lista);
+        contenedor.append(grupo);
+      });
+
+      // En el formulario, el trimestre sugerido es el actual
+      if (![...document.querySelectorAll("#item-trimestre .chip")].some(c => c.getAttribute("aria-checked") === "true")) {
+        elegirTrimestreItem(String(actual || 1));
+      }
+    }
+
+    // Ítems propios
+    const chipsTrimestre = document.querySelectorAll("#item-trimestre .chip");
+    function elegirTrimestreItem(valor) {
+      chipsTrimestre.forEach(c => c.setAttribute("aria-checked", String(c.dataset.valor === valor)));
+    }
+    chipsTrimestre.forEach(c => c.addEventListener("click", () => elegirTrimestreItem(c.dataset.valor)));
+
+    document.getElementById("form-item").addEventListener("submit", evento => {
+      evento.preventDefault();
+      const nombre = document.getElementById("item-nombre").value.trim();
+      const errorItem = document.getElementById("item-error");
+      if (!nombre) { errorItem.textContent = "Escribí qué te indicó tu médico."; return; }
+      errorItem.textContent = "";
+      const trimestre = Number(([...chipsTrimestre].find(c => c.getAttribute("aria-checked") === "true") || chipsTrimestre[0]).dataset.valor);
+      const d = leerChecklist();
+      d.propios.push({ id: "propio-" + nuevoId(), nombre, paraQue: document.getElementById("item-para-que").value.trim(), trimestre });
+      if (!guardarChecklist(d)) return;
+      document.getElementById("item-nombre").value = "";
+      document.getElementById("item-para-que").value = "";
+      gruposAbiertos.add(trimestre);
+      renderChecklist();
+    });
+    document.getElementById("item-nombre").addEventListener("input", () => { document.getElementById("item-error").textContent = ""; });
+
+    function alMostrarControles() {
+      renderTurnos();
+      renderChecklist();
+    }
+
+    // Al volver a la app (otro día u otra hora), se actualizan el próximo turno y el aviso
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) renderTurnos(); });
+    setInterval(renderAvisoTurno, 60 * 1000);
+
+    renderTurnos();
+    renderChecklist();
+
+
+    // =========================================================
+    // 12. ALARMA: teléfonos y "Cómo llegar"
+    // =========================================================
+    // Opcional: si la app la usa un hospital, se pueden cargar sus datos (validar con Obstetricia):
+    //   - nombre, direccion, localidad: "Cómo llegar" lleva a ese hospital.
+    //     Si "nombre" está vacío, busca guardias y maternidades cercanas.
+    //   - telefonoGuardia: teléfono de la guardia obstétrica, escrito como se quiere mostrar
+    //     (ej: "011 4444-5555"); para llamar se usan solo los números. Vacío = no se muestra el botón.
+    //   - telefonoEmergencias: emergencias médicas (107 por defecto; el 911 se muestra aparte).
+    const HOSPITAL = {
+      nombre: "",
+      direccion: "",
+      localidad: "",
+      telefonoGuardia: "",
+      telefonoEmergencias: "107"
+    };
+
+    function prepararAlarma() {
+      const soloNumeros = t => String(t || "").replace(/[^\d+]/g, "");
+
+      const guardia = soloNumeros(HOSPITAL.telefonoGuardia);
+      const botonGuardia = document.getElementById("llamar-guardia");
+      botonGuardia.hidden = !guardia;
+      if (guardia) {
+        botonGuardia.href = "tel:" + guardia;   // abre el marcador del celular
+        document.getElementById("numero-guardia").textContent = HOSPITAL.telefonoGuardia.trim();   // se muestra tal como está escrito
+      }
+
+      const emergencias = soloNumeros(HOSPITAL.telefonoEmergencias) || "107";
+      document.getElementById("llamar-emergencias").href = "tel:" + emergencias;
+      document.getElementById("numero-emergencias").textContent = String(HOSPITAL.telefonoEmergencias || "107").trim();
+
+      // "Cómo llegar": abre Google Maps (la app de mapas en el celular).
+      // Sin hospital cargado, queda la búsqueda de guardias cercanas que ya está en el HTML.
+      if (HOSPITAL.nombre) {
+        const lugar = [HOSPITAL.direccion, HOSPITAL.localidad].filter(Boolean).join(", ");
+        document.getElementById("hospital-nombre").textContent = HOSPITAL.nombre;
+        document.getElementById("hospital-direccion").textContent = lugar;
+        document.getElementById("boton-mapa").href = "https://www.google.com/maps/search/?api=1&query=" +
+          encodeURIComponent([HOSPITAL.nombre, lugar].filter(Boolean).join(", "));
+      }
+    }
+
+    prepararAlarma();
+
+
+    // =========================================================
+    // 13. PWA: registra el service worker (solo en https; abierto como archivo no hace nada)
+    // =========================================================
+    if ("serviceWorker" in navigator && window.isSecureContext && location.protocol !== "file:") {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("sw.js").catch(error => {
+          console.warn("No se pudo activar el modo sin conexión:", error);
+        });
+      });
+    }
+  </script>
+</body>
+</html>

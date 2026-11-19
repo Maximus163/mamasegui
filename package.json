@@ -1,0 +1,25 @@
+{
+  "name": "mamasegui",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MamaSegui: acompañamiento del embarazo. Web + app de Android con Capacitor.",
+  "scripts": {
+    "android": "node scripts/copiar-capacitor.js && npx cap sync android",
+    "abrir-android": "npx cap open android",
+    "iconos": "node scripts/dibujar-iconos.js && npx capacitor-assets generate --android --iconBackgroundColor \"#c2557a\" --splashBackgroundColor \"#faf6f9\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Maximus163/mamasegui.git"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/local-notifications": "^8.3.1"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^4.0.0",
+    "@capacitor/cli": "^8.6.2"
+  }
+}
